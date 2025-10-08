@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- Mono Studio Tools Shelf - Alternative Icons -->
+  
+  <toolshelf name="MonoStudio" label="Mono Studio">
+    <memberTool name="File_Manager"/>
+    <memberTool name="MiniBar"/>
+    <memberTool name="Material_Loader"/>
+    <memberTool name="Texture_Tools"/>
+    <memberTool name="All_Tools"/>
+  </toolshelf>
+
+  <tool name="File_Manager" label="File Manager" icon="hicon:/SVGIcons.index?MISC_asset_browser.svg">
+    <helpText><![CDATA[= File Manager =
+Open Mono File Manager for project navigation and file management.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+from mono_tools import show_mono_file_manager
+show_mono_file_manager()]]></script>
+  </tool>
+
+  <tool name="MiniBar" label="MiniBar" icon="hicon:/SVGIcons.index?SHELF_asset_library.svg">
+    <helpText><![CDATA[= MiniBar =
+Open MiniBar for quick file access and navigation.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+from mono_tools import show_mono_minibar
+show_mono_minibar()]]></script>
+  </tool>
+
+  <tool name="Material_Loader" label="Material Loader" icon="hicon:/SVGIcons.index?SHELF_assign_material.svg">
+    <helpText><![CDATA[= Material Loader =
+Open Material Loader for material management and creation.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+from mono_tools import show_material_loader
+show_material_loader()]]></script>
+  </tool>
+
+  <tool name="Texture_Tools" label="Texture Tools" icon="hicon:/SVGIcons.index?BUTTONS_addasset.svg">
+    <helpText><![CDATA[= Texture Tools =
+Open Texture Search & Replace tools for texture management.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+from mono_tools import show_texture_search_replace
+show_texture_search_replace()]]></script>
+  </tool>
+
+  <tool name="All_Tools" label="All Tools" icon="hicon:/SVGIcons.index?BUTTONS_add.svg">
+    <helpText><![CDATA[= All Tools =
+Open all Mono Studio tools at once.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+from mono_tools import show_mono_file_manager, show_mono_minibar, show_material_loader, show_texture_search_replace
+
+show_mono_file_manager()
+show_mono_minibar()
+show_material_loader()
+show_texture_search_replace()
+
+print("All Mono Studio tools opened!")]]></script>
+  </tool>
+
+</shelfDocument>
