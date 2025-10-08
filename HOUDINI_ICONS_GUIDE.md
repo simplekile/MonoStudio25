@@ -98,10 +98,22 @@
 
 ## 🔧 **Cách sử dụng trong Shelf File**
 
+### **Format đúng:**
 ```xml
-<tool name="Tool_Name" label="Tool Label" icon="ICON_NAME">
+<tool name="Tool_Name" label="Tool Label" icon="hicon:/SVGIcons.index?ICON_NAME.svg">
   <script scriptType="python">
     <!-- Your Python code here -->
+  </script>
+</tool>
+```
+
+### **Ví dụ:**
+```xml
+<tool name="File_Manager" label="File Manager" icon="hicon:/SVGIcons.index?BUTTONS_folder.svg">
+  <script scriptType="python">
+    import hou
+    from mono_tools import show_mono_file_manager
+    show_mono_file_manager()
   </script>
 </tool>
 ```

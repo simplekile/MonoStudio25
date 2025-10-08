@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <shelfDocument>
-  <!-- Mono Studio Tools Shelf - Professional Icons -->
-  <!-- Icons reference: https://houdini-icons.dev/ -->
+  <!-- Mono Studio Tools Shelf - Test Different Icons -->
   
   <toolshelf name="MonoStudio" label="Mono Studio">
     <memberTool name="File_Manager"/>
@@ -14,12 +13,6 @@
   <tool name="File_Manager" label="File Manager" icon="hicon:/SVGIcons.index?BUTTONS_folder.svg">
     <helpText><![CDATA[= File Manager =
 Open Mono File Manager for project navigation and file management.
-
-== Overview ==
-- Browse project files
-- Manage shots and assets
-- Quick file access
-- Project organization
 ]]></helpText>
     <script scriptType="python"><![CDATA[import hou
 from mono_tools import show_mono_file_manager
@@ -29,12 +22,6 @@ show_mono_file_manager()]]></script>
   <tool name="MiniBar" label="MiniBar" icon="hicon:/SVGIcons.index?BUTTONS_toolbar.svg">
     <helpText><![CDATA[= MiniBar =
 Open MiniBar for quick file access and navigation.
-
-== Overview ==
-- Quick file access
-- Shot navigation
-- Drag and drop positioning
-- Compact interface
 ]]></helpText>
     <script scriptType="python"><![CDATA[import hou
 from mono_tools import show_mono_minibar
@@ -44,12 +31,6 @@ show_mono_minibar()]]></script>
   <tool name="Material_Loader" label="Material Loader" icon="hicon:/SVGIcons.index?BUTTONS_material.svg">
     <helpText><![CDATA[= Material Loader =
 Open Material Loader for material management and creation.
-
-== Overview ==
-- Load materials
-- Create new materials
-- Material library management
-- Shader operations
 ]]></helpText>
     <script scriptType="python"><![CDATA[import hou
 from mono_tools import show_material_loader
@@ -59,12 +40,6 @@ show_material_loader()]]></script>
   <tool name="Texture_Tools" label="Texture Tools" icon="hicon:/SVGIcons.index?BUTTONS_texture.svg">
     <helpText><![CDATA[= Texture Tools =
 Open Texture Search & Replace tools for texture management.
-
-== Overview ==
-- Search texture paths
-- Replace texture paths
-- Batch texture operations
-- Path management
 ]]></helpText>
     <script scriptType="python"><![CDATA[import hou
 from mono_tools import show_texture_search_replace
@@ -74,13 +49,6 @@ show_texture_search_replace()]]></script>
   <tool name="All_Tools" label="All Tools" icon="hicon:/SVGIcons.index?BUTTONS_all.svg">
     <helpText><![CDATA[= All Tools =
 Open all Mono Studio tools at once.
-
-== Overview ==
-- File Manager
-- MiniBar
-- Material Loader
-- Texture Tools
-- Complete workflow
 ]]></helpText>
     <script scriptType="python"><![CDATA[import hou
 from mono_tools import show_mono_file_manager, show_mono_minibar, show_material_loader, show_texture_search_replace
