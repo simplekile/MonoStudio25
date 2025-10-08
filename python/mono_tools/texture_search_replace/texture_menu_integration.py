@@ -10,64 +10,25 @@ from .texture_search_replace import show_texture_search_replace
 def add_texture_tools_to_menu():
     """Thêm Texture Search & Replace vào menu Houdini"""
     try:
-        # Tìm hoặc tạo menu Mono Studio
-        main_menu = hou.ui.mainMenuBar()
-        
-        # Tìm menu Mono Studio
-        mono_menu = None
-        for action in main_menu.actions():
-            if action.text() == "Mono Studio":
-                mono_menu = action.menu()
-                break
-        
-        # Nếu không tìm thấy, tạo menu mới
-        if not mono_menu:
-            mono_menu = main_menu.addMenu("Mono Studio")
-        
-        # Thêm Texture Search & Replace action
-        texture_action = mono_menu.addAction("Texture Search & Replace")
-        texture_action.triggered.connect(show_texture_search_replace)
-        
-        # Thêm separator
-        mono_menu.addSeparator()
-        
-        print("✅ Texture Search & Replace đã được thêm vào menu Mono Studio")
+        print("ℹ️ Menu integration temporarily disabled - using direct access")
+        print("💡 Use: from mono_tools import show_texture_search_replace")
+        return True
         
     except Exception as e:
         print(f"❌ Lỗi khi thêm menu: {e}")
-        import traceback
-        traceback.print_exc()
+        return False
 
 
 def add_to_shelf():
     """Thêm Texture Search & Replace vào shelf"""
     try:
-        # Lấy shelf hiện tại
-        shelf_tabs = hou.shelves.shelves()
-        shelf = shelf_tabs.get("Mono Studio")
-        if not shelf:
-            # Tạo shelf mới nếu chưa có
-            shelf = shelf_tabs.create("Mono Studio")
-        
-        # Tạo script cho shelf tool
-        script = """
-import hou
-from mono_tools.texture_search_replace import show_texture_search_replace
-show_texture_search_replace()
-"""
-        
-        # Thêm tool vào shelf
-        shelf.addTool(
-            name="Texture Search & Replace",
-            script=script,
-            icon="MISC_texture",
-            help_text="Tìm kiếm và thay thế đường dẫn texture"
-        )
-        
-        print("✅ Texture Search & Replace đã được thêm vào shelf Mono Studio")
+        print("ℹ️ Shelf integration temporarily disabled - using direct access")
+        print("💡 Use: from mono_tools import show_texture_search_replace")
+        return True
         
     except Exception as e:
         print(f"❌ Lỗi khi thêm vào shelf: {e}")
+        return False
 
 
 def setup_texture_tools():
