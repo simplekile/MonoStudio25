@@ -22,12 +22,26 @@ class MonoFileManager(QtWidgets.QDialog):
         b_browse=QtWidgets.QPushButton("Browse…"); b_browse.clicked.connect(self._browse)
         self.project_cb=QtWidgets.QComboBox(); self._reload_projects()
         self.project_cb.currentIndexChanged.connect(self._on_project_changed)
-        # Tabs for subpaths
-        self.tabs_conf = load_tabs_settings(self.s)
-        self.tabs=QtWidgets.QTabWidget(); self.tabs.setMovable(True); self.tabs.setTabsClosable(True)
-        self.tabs.tabBarDoubleClicked.connect(self._rename_tab)
-        self.tabs.tabCloseRequested.connect(self._remove_tab)
-        self._init_tabs()
+        # Type tabs (Assets/Shots)
+        self.type_tabs = QtWidgets.QTabWidget()
+        self.type_tabs.currentChanged.connect(self._on_type_changed)
+        
+        # Create Assets and Shots type tabs
+        self.assets_tab = QtWidgets.QWidget()
+        self.shots_tab = QtWidgets.QWidget()
+        
+        # Tabs for subpaths within each type
+        self.assets_tabs = QtWidgets.QTabWidget(); self.assets_tabs.setMovable(True); self.assets_tabs.setTabsClosable(True)
+        self.assets_tabs.tabBarDoubleClicked.connect(self._rename_tab)
+        self.assets_tabs.tabCloseRequested.connect(self._remove_tab)
+        
+        self.shots_tabs = QtWidgets.QTabWidget(); self.shots_tabs.setMovable(True); self.shots_tabs.setTabsClosable(True)
+        self.shots_tabs.tabBarDoubleClicked.connect(self._rename_tab)
+        self.shots_tabs.tabCloseRequested.connect(self._remove_tab)
+        
+        self._init_type_tabs()
+        # Initialize current_tabs reference
+        self.current_tabs = self.shots_tabs  # Default to shots
         # Per-tab control row
         self.depth_sb=QtWidgets.QSpinBox(); self.depth_sb.setRange(1,10); self.depth_sb.setValue(1)
         exts_lbl=QtWidgets.QLabel(".hip, .hiplc, .hipnc (fixed)")
@@ -41,7 +55,7 @@ class MonoFileManager(QtWidgets.QDialog):
         self.table = None
         g=QtWidgets.QGridLayout(); g.setVerticalSpacing(6); g.setHorizontalSpacing(8)
         g.addWidget(QtWidgets.QLabel("Project Root"),0,0); g.addWidget(self.root_le,0,1); g.addWidget(b_browse,0,2); g.addWidget(self.project_cb,0,3)
-        g.addWidget(QtWidgets.QLabel("Subpaths"),1,0); g.addWidget(self.tabs,1,1,1,3)
+        g.addWidget(QtWidgets.QLabel("Type"),1,0); g.addWidget(self.type_tabs,1,1,1,3)
         g.addWidget(QtWidgets.QLabel("Depth"),2,0); g.addWidget(self.depth_sb,2,1); g.addWidget(exts_lbl,2,2); g.addWidget(b_add_tab,2,3)
         lay=QtWidgets.QVBoxLayout(self); lay.setContentsMargins(12,12,12,12); lay.setSpacing(10)
         lay.addWidget(title); lay.addLayout(g); lay.addLayout(row)
@@ -117,15 +131,70 @@ class MonoFileManager(QtWidgets.QDialog):
             # Auto-scan when project changes
             QtCore.QTimer.singleShot(100, self.scan)
 
+    # ---- Type Tabs ----
+    def _init_type_tabs(self):
+        # Setup Assets tab
+        assets_layout = QtWidgets.QVBoxLayout(self.assets_tab)
+        assets_layout.addWidget(self.assets_tabs)
+        self.type_tabs.addTab(self.assets_tab, "Assets")
+        
+        # Setup Shots tab  
+        shots_layout = QtWidgets.QVBoxLayout(self.shots_tab)
+        shots_layout.addWidget(self.shots_tabs)
+        self.type_tabs.addTab(self.shots_tab, "Shots")
+        
+        # Initialize sub-tabs for each type
+        self._init_assets_tabs()
+        self._init_shots_tabs()
+        
+        # Set default type
+        current_type = self.s.value("current_type", "Shots", type=str)
+        if current_type == "Assets":
+            self.type_tabs.setCurrentIndex(0)
+        else:
+            self.type_tabs.setCurrentIndex(1)
+
+    def _init_assets_tabs(self):
+        """Initialize Assets sub-tabs"""
+        assets_configs = [
+            {"name": "models", "subpath": "Assets/Models", "depth": 2},
+            {"name": "textures", "subpath": "Assets/Textures", "depth": 2},
+            {"name": "materials", "subpath": "Assets/Materials", "depth": 2}
+        ]
+        for conf in assets_configs:
+            self._create_type_tab(self.assets_tabs, conf)
+
+    def _init_shots_tabs(self):
+        """Initialize Shots sub-tabs"""
+        shots_configs = [
+            {"name": "lighting", "subpath": "02_shots/03_lighting", "depth": 1},
+            {"name": "animation", "subpath": "02_shots/02_animation", "depth": 1},
+            {"name": "comp", "subpath": "02_shots/04_comp", "depth": 1}
+        ]
+        for conf in shots_configs:
+            self._create_type_tab(self.shots_tabs, conf)
+
+    def _on_type_changed(self, idx):
+        """Handle type tab change"""
+        if idx == 0:  # Assets
+            self.current_tabs = self.assets_tabs
+        else:  # Shots
+            self.current_tabs = self.shots_tabs
+        
+        self.s.setValue("current_type", "Assets" if idx == 0 else "Shots")
+        self.s.sync()
+        
+        # Update current tab reference
+        self._bind_active_tab()
+        self.scan()
+
     # ---- Tabs ----
     def _init_tabs(self):
-        for conf in self.tabs_conf:
-            self._create_tab(conf)
-        if self.tabs.count()==0:
-            self._create_tab({"name":"lighting","subpath":SUBPATH,"depth":1})
-        self.tabs.currentChanged.connect(self._on_tab_changed)
+        # This method is now handled by _init_type_tabs
+        pass
 
-    def _create_tab(self, conf):
+    def _create_type_tab(self, parent_tabs, conf):
+        """Create a tab within a type (Assets or Shots)"""
         name=conf.get("name","lighting"); subpath=conf.get("subpath",SUBPATH); depth=int(conf.get("depth",1))
         w=QtWidgets.QWidget(); lay=QtWidgets.QVBoxLayout(w); lay.setContentsMargins(0,0,0,0)
         
@@ -140,52 +209,71 @@ class MonoFileManager(QtWidgets.QDialog):
         w.model=model; w.proxy=proxy; w.table=table; w.subpath=subpath; w.depth=depth
         lay.addWidget(table)
         
-        idx=self.tabs.addTab(w, name); return idx
+        # Connect tab change events
+        parent_tabs.currentChanged.connect(self._on_tab_changed)
+        
+        idx=parent_tabs.addTab(w, name); return idx
+
+    def _create_tab(self, conf):
+        """Legacy method - now redirects to _create_type_tab"""
+        return self._create_type_tab(self.current_tabs, conf)
 
     def _on_tab_changed(self, idx):
         self._bind_active_tab(); self.scan()
 
     def _bind_active_tab(self):
-        w=self.tabs.currentWidget()
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs  # Default to shots
+        
+        w=self.current_tabs.currentWidget()
         if not w: return
         self.table = w.table; self.depth_sb.setValue(getattr(w,'depth',1))
 
     def _active_model(self):
-        w=self.tabs.currentWidget(); return getattr(w,'model',None)
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs
+        w=self.current_tabs.currentWidget(); return getattr(w,'model',None)
     
     def _active_proxy(self):
-        w=self.tabs.currentWidget(); return getattr(w,'proxy',None)
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs
+        w=self.current_tabs.currentWidget(); return getattr(w,'proxy',None)
+        
     def _current_subpath(self):
-        w=self.tabs.currentWidget(); return getattr(w,'subpath',SUBPATH)
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs
+        w=self.current_tabs.currentWidget(); return getattr(w,'subpath',SUBPATH)
 
     def _add_tab(self):
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs
+            
         name, ok = QtWidgets.QInputDialog.getText(self, "New Tab", "Tab name:", text="new")
         if not ok or not name.strip(): return
         sub, ok2 = QtWidgets.QInputDialog.getText(self, "Subpath", "Relative subpath:", text=SUBPATH)
         if not ok2 or not sub.strip(): return
         conf={"name":name.strip(),"subpath":sub.strip(),"depth":1}
-        self.tabs_conf.append(conf); self._create_tab(conf); save_tabs_settings(self.s, self.tabs_conf)
+        self._create_type_tab(self.current_tabs, conf)
 
     def _remove_tab(self, idx):
-        if self.tabs.count()<=1: return
-        name=self.tabs.tabText(idx)
-        self.tabs.removeTab(idx)
-        self.tabs_conf=[c for c in self.tabs_conf if c.get('name')!=name]
-        save_tabs_settings(self.s, self.tabs_conf)
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs
+            
+        if self.current_tabs.count()<=1: return
+        name=self.current_tabs.tabText(idx)
+        self.current_tabs.removeTab(idx)
 
     def _rename_tab(self, idx):
+        if not hasattr(self, 'current_tabs'):
+            self.current_tabs = self.shots_tabs
+            
         if idx<0: return
-        w=self.tabs.widget(idx); old_name=self.tabs.tabText(idx)
+        w=self.current_tabs.widget(idx); old_name=self.current_tabs.tabText(idx)
         new_name, ok = QtWidgets.QInputDialog.getText(self, "Rename Tab", "Tab name:", text=old_name)
         if not ok or not new_name.strip(): return
         new_sub, ok2 = QtWidgets.QInputDialog.getText(self, "Edit Subpath", "Relative subpath:", text=getattr(w,'subpath',SUBPATH))
         if not ok2 or not new_sub.strip(): return
-        self.tabs.setTabText(idx, new_name.strip()); w.subpath=new_sub.strip()
-        # update conf
-        for c in self.tabs_conf:
-            if c.get('name')==old_name:
-                c['name']=new_name.strip(); c['subpath']=w.subpath; break
-        save_tabs_settings(self.s, self.tabs_conf)
+        self.current_tabs.setTabText(idx, new_name.strip()); w.subpath=new_sub.strip()
     def _selected_fullpath(self):
         idxs = self.table.selectionModel().selectedRows()
         if not idxs: return None
