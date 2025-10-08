@@ -50,11 +50,15 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(160); self.shot_display.setMaximumWidth(160); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
+        # Subpath dropdown
+        self.subpath_cb = QtWidgets.QComboBox(); self.subpath_cb.setMinimumWidth(100); self.subpath_cb.setMaximumWidth(120)
+        self.subpath_cb.setToolTip("Chọn subpath để lọc files"); self.subpath_cb.currentIndexChanged.connect(self._on_subpath_changed)
+        self._load_subpaths()
         self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚙️"); self.btn_quick_menu.setFixedSize(28, 28); self.btn_quick_menu.setToolTip("Quick Menu\n• Reload Scene\n• Restart Houdini\n• Open File Location\n• Open Render Folder"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
         self.btn_save_version=QtWidgets.QToolButton(); self.btn_save_version.setText("💾"); self.btn_save_version.setFixedSize(28, 28); self.btn_save_version.setToolTip("Save Version\n• Increment version number\n• Move old version to Vers folder"); self.btn_save_version.clicked.connect(self._save_version)
         self.btn_expand=QtWidgets.QToolButton(); self.btn_expand.setText("⚡"); self.btn_expand.setFixedSize(32, 28); self.btn_expand.setToolTip("Mở giao diện đầy đủ • Tự động scan files"); self.btn_expand.clicked.connect(self._open_manager)
         lay=QtWidgets.QHBoxLayout(self); lay.setContentsMargins(6,6,8,6); lay.setSpacing(4)
-        lay.addWidget(self.handle_area, 0); lay.addWidget(self.shot_display, 1); lay.addWidget(self.btn_quick_menu, 0); lay.addWidget(self.btn_save_version, 0); lay.addWidget(self.btn_expand, 0)
+        lay.addWidget(self.handle_area, 0); lay.addWidget(self.shot_display, 1); lay.addWidget(self.subpath_cb, 0); lay.addWidget(self.btn_quick_menu, 0); lay.addWidget(self.btn_save_version, 0); lay.addWidget(self.btn_expand, 0)
         self.setStyleSheet("""
         #MonoMiniBar { background:#2a2a2a; border:1px solid #3a3a3a; border-radius:10px; }
         QLabel { color:#888; font-weight:bold; font-size:14px; background:transparent; }
@@ -450,5 +454,58 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                     mw.installEventFilter(self._main_window_filter)
         except:
             pass  # Fail silently if can't setup monitoring
+
+    def _load_subpaths(self):
+        """Load available subpaths from settings"""
+        try:
+            from .fm_helpers import load_tabs_settings
+            tabs_conf = load_tabs_settings(self.s)
+            self.subpath_cb.clear()
+            for conf in tabs_conf:
+                name = conf.get('name', 'lighting')
+                subpath = conf.get('subpath', '02_shots/03_lighting')
+                self.subpath_cb.addItem(name, subpath)
+            
+            # Set default selection
+            current_subpath = self.s.value("minibar_subpath", "lighting", type=str)
+            idx = self.subpath_cb.findText(current_subpath)
+            if idx >= 0:
+                self.subpath_cb.setCurrentIndex(idx)
+        except Exception as e:
+            print(f"⚠️ Error loading subpaths: {e}")
+
+    def _on_subpath_changed(self, idx):
+        """Handle subpath dropdown change"""
+        if idx >= 0:
+            subpath = self.subpath_cb.itemData(idx)
+            self.s.setValue("minibar_subpath", self.subpath_cb.currentText())
+            self.s.sync()
+            # Refresh files for new subpath
+            self._refresh_files_for_subpath(subpath)
+
+    def _refresh_files_for_subpath(self, subpath):
+        """Refresh files for specific subpath"""
+        try:
+            if not self.manager:
+                return
+                
+            # Get project root and selected project
+            root = self.manager.root_le.text().strip()
+            project = self.manager.project_cb.currentText().strip()
+            
+            if not root or not project:
+                return
+                
+            # Build target directory
+            target_dir = os.path.join(root, project, subpath)
+            if not os.path.isdir(target_dir):
+                return
+                
+            # Collect files and populate
+            files = collect_files(target_dir, depth=1)
+            self.populate(files)
+            
+        except Exception as e:
+            print(f"⚠️ Error refreshing files for subpath: {e}")
 
 

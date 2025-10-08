@@ -47,7 +47,12 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
             
             # Create rs_usd_material_builder (correct node type from original script)
             mat_builder = matlib_node.createNode("rs_usd_material_builder", safe_name)
-            mat_builder.setPosition(matlib_node.position() + position_offset)
+            
+            # Convert position_offset tuple to Vector2 and add to material library position
+            lib_pos = matlib_node.position()
+            offset_x, offset_y = position_offset
+            new_pos = (lib_pos[0] + offset_x, lib_pos[1] + offset_y)
+            mat_builder.setPosition(new_pos)
             
             # Find existing StandardMaterial1 and redshift_usd_material1 nodes
             rs_mat = None
@@ -94,7 +99,7 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
                         if cs_parm:
                             cs_parm.set("Utility - Raw")
                             
-                        if enable_udim:
+                        if udim:
                             udim_parm = disp_node.parm("udim_enable")
                             if udim_parm:
                                 udim_parm.set(1)
@@ -127,7 +132,7 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
                         if cs_parm:
                             cs_parm.set("Utility - Raw")
                             
-                        if enable_udim:
+                        if udim:
                             udim_parm = nrm.parm("udim_enable")
                             if udim_parm:
                                 udim_parm.set(1)
@@ -170,7 +175,7 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
                             cs_parm.set("Utility - Raw")
                         # else: leave as Auto for color textures
 
-                    if enable_udim:
+                    if udim:
                         udim_parm = ts.parm("udim_enable")
                         if udim_parm:
                             udim_parm.set(1)
@@ -279,7 +284,11 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
                         print(f"Error: No valid Karma node type found for {safe_name}")
                         continue
             
-            mat_builder.setPosition(matlib_node.position() + position_offset)
+            # Convert position_offset tuple to Vector2 and add to material library position
+            lib_pos = matlib_node.position()
+            offset_x, offset_y = position_offset
+            new_pos = (lib_pos[0] + offset_x, lib_pos[1] + offset_y)
+            mat_builder.setPosition(new_pos)
             
             # Create Material Output if we have a MaterialXBuilder
             if mat_builder.type().name() == "karma::MaterialXBuilder":

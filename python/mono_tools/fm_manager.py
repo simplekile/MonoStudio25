@@ -37,22 +37,14 @@ class MonoFileManager(QtWidgets.QDialog):
         b_open=QtWidgets.QPushButton("Open in Explorer"); b_open.clicked.connect(self._open_selected)
         b_copy=QtWidgets.QPushButton("Copy Path"); b_copy.clicked.connect(self._copy_selected)
         row=QtWidgets.QHBoxLayout(); row.addWidget(b_scan); row.addWidget(b_refresh); row.addStretch(1); row.addWidget(b_open); row.addWidget(b_copy)
-        # Container for active tab's view
-        self.model = FileTableModel(self)
-        self.proxy = QtCore.QSortFilterProxyModel(self)
-        self.proxy.setSourceModel(self.model)
-        self.proxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
-        self.table=QtWidgets.QTableView(); self.table.setModel(self.proxy); self.table.setSortingEnabled(True)
-        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows); self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.table.doubleClicked.connect(self._dbl_open); self.table.verticalHeader().setVisible(False); self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setAlternatingRowColors(True)
-        self._bind_active_tab()
+        # Global table will be created per tab
+        self.table = None
         g=QtWidgets.QGridLayout(); g.setVerticalSpacing(6); g.setHorizontalSpacing(8)
         g.addWidget(QtWidgets.QLabel("Project Root"),0,0); g.addWidget(self.root_le,0,1); g.addWidget(b_browse,0,2); g.addWidget(self.project_cb,0,3)
         g.addWidget(QtWidgets.QLabel("Subpaths"),1,0); g.addWidget(self.tabs,1,1,1,3)
         g.addWidget(QtWidgets.QLabel("Depth"),2,0); g.addWidget(self.depth_sb,2,1); g.addWidget(exts_lbl,2,2); g.addWidget(b_add_tab,2,3)
         lay=QtWidgets.QVBoxLayout(self); lay.setContentsMargins(12,12,12,12); lay.setSpacing(10)
-        lay.addWidget(title); lay.addLayout(g); lay.addLayout(row); lay.addWidget(self.table)
+        lay.addWidget(title); lay.addLayout(g); lay.addLayout(row)
         self.setStyleSheet("""
         QDialog { background:#232323; color:#e5e5e5; }
         QLabel { color:#e5e5e5; }
@@ -136,8 +128,18 @@ class MonoFileManager(QtWidgets.QDialog):
     def _create_tab(self, conf):
         name=conf.get("name","lighting"); subpath=conf.get("subpath",SUBPATH); depth=int(conf.get("depth",1))
         w=QtWidgets.QWidget(); lay=QtWidgets.QVBoxLayout(w); lay.setContentsMargins(0,0,0,0)
+        
+        # Create table for this tab
         model=FileTableModel(self); proxy=QtCore.QSortFilterProxyModel(self); proxy.setSourceModel(model); proxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
-        w.model=model; w.proxy=proxy; w.subpath=subpath; w.depth=depth
+        table=QtWidgets.QTableView(); table.setModel(proxy); table.setSortingEnabled(True)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows); table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        table.doubleClicked.connect(self._dbl_open); table.verticalHeader().setVisible(False); table.horizontalHeader().setStretchLastSection(True)
+        table.setAlternatingRowColors(True)
+        
+        # Store references
+        w.model=model; w.proxy=proxy; w.table=table; w.subpath=subpath; w.depth=depth
+        lay.addWidget(table)
+        
         idx=self.tabs.addTab(w, name); return idx
 
     def _on_tab_changed(self, idx):
@@ -146,7 +148,7 @@ class MonoFileManager(QtWidgets.QDialog):
     def _bind_active_tab(self):
         w=self.tabs.currentWidget()
         if not w: return
-        self.table.setModel(w.proxy); self.depth_sb.setValue(getattr(w,'depth',1))
+        self.table = w.table; self.depth_sb.setValue(getattr(w,'depth',1))
 
     def _active_model(self):
         w=self.tabs.currentWidget(); return getattr(w,'model',None)

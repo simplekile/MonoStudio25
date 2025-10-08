@@ -77,13 +77,36 @@ def infer_shot(full_path):
         return shot_name
     parts=os.path.normpath(full_path).split(os.sep)
     try:
-        i=parts.index("03_lighting")
-        if len(parts)>i+1:
-            folder_name = parts[i+1]
-            if '.' not in folder_name:
-                return folder_name
+        # Look for common shot patterns in path
+        for i, part in enumerate(parts):
+            if part in ["03_lighting", "02_animation", "01_modeling", "04_comp", "05_render"]:
+                if len(parts) > i + 1:
+                    folder_name = parts[i + 1]
+                    if '.' not in folder_name:
+                        return folder_name
     except ValueError: pass
-    return ""
+    
+    # Fallback: try to extract from filename
+    filename = os.path.basename(full_path)
+    name, ext = os.path.splitext(filename)
+    
+    # Look for shot patterns in filename (Sh001, SH002, shot_001, etc.)
+    shot_match = re.search(r'(?:sh|shot)[-_]?(\d+)', name, re.IGNORECASE)
+    if shot_match:
+        return f"Sh{shot_match.group(1).zfill(3)}"
+    
+    # Look for any 3-digit number that might be a shot
+    number_match = re.search(r'(\d{3,4})', name)
+    if number_match:
+        return f"Sh{number_match.group(1).zfill(3)}"
+    
+    # Last resort: use first part of filename (before any version info)
+    clean_name = re.sub(r'[_-]v\d+.*$', '', name)  # Remove version info
+    clean_name = re.sub(r'[_-].*$', '', clean_name)  # Remove everything after first separator
+    if clean_name and len(clean_name) > 2:
+        return clean_name[:10]  # Limit length
+    
+    return "Unknown"
 
 def parse_ver(name):
     m=VER_RX.search(name)
