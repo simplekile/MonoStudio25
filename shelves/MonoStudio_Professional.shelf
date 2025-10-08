@@ -11,7 +11,7 @@
     <memberTool name="All_Tools"/>
   </toolshelf>
 
-  <tool name="File_Manager" label="File Manager" icon="MISC_folder">
+  <tool name="File_Manager" label="File Manager" icon="hicon:/SVGIcons.index?BUTTONS_folder.svg">
     <helpText><![CDATA[= File Manager =
 Open Mono File Manager for project navigation and file management.
 
@@ -26,7 +26,7 @@ from mono_tools import show_mono_file_manager
 show_mono_file_manager()]]></script>
   </tool>
 
-  <tool name="MiniBar" label="MiniBar" icon="MISC_toolbar">
+  <tool name="MiniBar" label="MiniBar" icon="hicon:/SVGIcons.index?BUTTONS_toolbar.svg">
     <helpText><![CDATA[= MiniBar =
 Open MiniBar for quick file access and navigation.
 
@@ -41,7 +41,7 @@ from mono_tools import show_mono_minibar
 show_mono_minibar()]]></script>
   </tool>
 
-  <tool name="Material_Loader" label="Material Loader" icon="MISC_material">
+  <tool name="Material_Loader" label="Material Loader" icon="hicon:/SVGIcons.index?BUTTONS_material.svg">
     <helpText><![CDATA[= Material Loader =
 Open Material Loader for material management and creation.
 
@@ -56,7 +56,7 @@ from mono_tools import show_material_loader
 show_material_loader()]]></script>
   </tool>
 
-  <tool name="Texture_Tools" label="Texture Tools" icon="MISC_texture">
+  <tool name="Texture_Tools" label="Texture Tools" icon="hicon:/SVGIcons.index?BUTTONS_texture.svg">
     <helpText><![CDATA[= Texture Tools =
 Open Texture Search & Replace tools for texture management.
 
@@ -71,7 +71,7 @@ from mono_tools import show_texture_search_replace
 show_texture_search_replace()]]></script>
   </tool>
 
-  <tool name="All_Tools" label="All Tools" icon="MISC_all">
+  <tool name="All_Tools" label="All Tools" icon="hicon:/SVGIcons.index?BUTTONS_all.svg">
     <helpText><![CDATA[= All Tools =
 Open all Mono Studio tools at once.
 
