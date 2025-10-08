@@ -193,4 +193,25 @@ class MonoFileManager(QtWidgets.QDialog):
                 folder_path = os.path.dirname(fp)
                 open_in_explorer(folder_path)
 
+    def _open_selected(self):
+        """Open the selected file's folder in Explorer"""
+        fp = self._selected_fullpath()
+        if fp: 
+            folder_path = os.path.dirname(fp)
+            open_in_explorer(folder_path)
+        else:
+            hou.ui.displayMessage("Vui lòng chọn một file trong danh sách trước", 
+                                severity=hou.severityType.Warning)
+
+    def _copy_selected(self):
+        """Copy the selected file's path to clipboard"""
+        fp = self._selected_fullpath()
+        if fp:
+            from mono_tools.qt import QtWidgets
+            QtWidgets.QApplication.clipboard().setText(fp)
+            hou.ui.displayMessage(f"Đã copy path:\n{fp}", severity=hou.severityType.Message)
+        else:
+            hou.ui.displayMessage("Vui lòng chọn một file trong danh sách trước", 
+                                severity=hou.severityType.Warning)
+
 
