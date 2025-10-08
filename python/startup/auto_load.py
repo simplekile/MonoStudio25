@@ -11,9 +11,19 @@ def auto_load_mono_studio():
         
         # Import and show MiniBar
         from mono_tools.file_manager import show_mono_minibar
+        from mono_tools.texture_search_replace import show_texture_search_replace, setup_texture_tools
+        from mono_tools.material_loader import show_material_loader
+        from mono_tools.file_manager import setup_file_manager_tools
+        from mono_tools.material_loader import setup_material_loader_tools
         from mono_tools.qt import QtCore
         import hou
         print("✅ All modules imported successfully")
+        
+        # Setup all tools menus
+        print("🔧 Setting up all tools...")
+        setup_texture_tools()
+        setup_file_manager_tools()
+        setup_material_loader_tools()
         
         # Delay để đảm bảo Houdini UI đã load xong
         def delayed_show():
@@ -37,6 +47,7 @@ def auto_load_mono_studio():
                     minibar.raise_()
                     print("✅ Mono Studio MiniBar loaded!")
                     print("💡 Tips: Click shot name → open file | Click ⚡ → full manager")
+                    print("🔍 Texture Search & Replace available in Mono Studio menu")
                 else:
                     print("⚠️ MiniBar creation returned None")
             except Exception as e:

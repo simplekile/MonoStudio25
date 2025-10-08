@@ -7,19 +7,18 @@ __version__ = "2.0.0"
 __author__ = "DTA Studio"
 
 # Re-export Qt shim for convenient access (PySide6 preferred, PySide2 fallback)
-from .qt import QtCore, QtGui, QtWidgets, API
+from .qt import QtCore, QtGui, QtWidgets, API as QT_API
 
-# Import all tools from their respective packages
-from .file_manager import (
+# Import all tools
+from .file_manager_api import (
     FileManagerWrapper,
     show_mono_file_manager,
     show_mono_minibar,
     MonoFileManager,
     MonoFileMiniBar,
 )
-from .material_loader import show_material_loader, setup_material_loader_tools
-from .texture_search_replace import show_texture_search_replace, setup_texture_tools
-from .file_manager import setup_file_manager_tools
+from .material_loader import show_material_loader  
+from .texture_search_replace import show_texture_search_replace
 from .utils import MonoUtils
 
 # Test and verification functions
@@ -41,12 +40,9 @@ __all__ = [
     'MonoFileManager',
     'MonoFileMiniBar',
     'show_material_loader',
-    'setup_material_loader_tools',
     'show_texture_search_replace',
-    'setup_texture_tools',
-    'setup_file_manager_tools',
     'MonoUtils',
-    'QtCore', 'QtGui', 'QtWidgets', 'API',
+    'QtCore', 'QtGui', 'QtWidgets', 'QT_API',
     'test_pyside6', 'verify_pyside6', 'demo_texture_search_replace',
     'initialize'
 ]
