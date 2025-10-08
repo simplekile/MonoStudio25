@@ -74,27 +74,32 @@
 | `VOP_noise` | Noise icon | Noise operations |
 | `VOP_color` | Color icon | Color operations |
 
-## 🎯 **Icon Recommendations cho Mono Studio Tools**
+## 🎯 **Icon Recommendations cho Mono Studio Tools (Database Verified)**
 
 ### **File Manager**
-- **Primary**: `MISC_file` - File operations
-- **Alternatives**: `MISC_folder`, `MISC_all`
+- **Primary**: `hicon:/SVGIcons.index?BUTTONS_chooser_folder.svg` - Folder chooser
+- **Alternative 1**: `hicon:/SVGIcons.index?MISC_asset_browser.svg` - Asset browser
+- **Alternative 2**: `hicon:/SVGIcons.index?BUTTONS_chooser_file.svg` - File chooser
 
 ### **MiniBar**
-- **Primary**: `MISC_toolbar` - UI toolbar
-- **Alternatives**: `MISC_toolbar`, `MISC_all`
+- **Primary**: `hicon:/SVGIcons.index?BUTTONS_add_panel.svg` - Add panel
+- **Alternative 1**: `hicon:/SVGIcons.index?SHELF_asset_library.svg` - Asset library
+- **Alternative 2**: `hicon:/SVGIcons.index?BUTTONS_toolbar.svg` - Toolbar
 
 ### **Material Loader**
-- **Primary**: `MISC_material` - Material operations
-- **Alternatives**: `MISC_material`, `MISC_all`
+- **Primary**: `hicon:/SVGIcons.index?BUTTONS_add_quick_material.svg` - Quick material
+- **Alternative 1**: `hicon:/SVGIcons.index?SHELF_assign_material.svg` - Assign material
+- **Alternative 2**: `hicon:/SVGIcons.index?BUTTONS_material.svg` - Material
 
 ### **Texture Tools**
-- **Primary**: `MISC_texture` - Texture operations
-- **Alternatives**: `MISC_texture`, `MISC_all`
+- **Primary**: `hicon:/SVGIcons.index?BUTTONS_add_image.svg` - Add image
+- **Alternative 1**: `hicon:/SVGIcons.index?BUTTONS_addasset.svg` - Add asset
+- **Alternative 2**: `hicon:/SVGIcons.index?BUTTONS_texture.svg` - Texture
 
 ### **All Tools**
-- **Primary**: `MISC_all` - All operations
-- **Alternatives**: `MISC_all`, `MISC_toolbar`
+- **Primary**: `hicon:/SVGIcons.index?BUTTONS_all_handles.svg` - All handles
+- **Alternative 1**: `hicon:/SVGIcons.index?BUTTONS_add.svg` - Add
+- **Alternative 2**: `hicon:/SVGIcons.index?BUTTONS_all.svg` - All
 
 ## 🔧 **Cách sử dụng trong Shelf File**
 
