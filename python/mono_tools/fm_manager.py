@@ -12,8 +12,12 @@ class MonoFileManager(QtWidgets.QDialog):
         self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint, True)
         self.setMinimumWidth(920); self.setMinimumHeight(520)
         self.s=QtCore.QSettings(ORG,APP)
-        self._build_ui(); self._restore(); QtCore.QTimer.singleShot(0,self._center)
+        # Initialize attributes
+        self.table = None
+        self.depth_sb = None
+        self.tabs_conf = []
         self._minibar_ref=None
+        self._build_ui(); self._restore(); QtCore.QTimer.singleShot(0,self._center)
 
     def _build_ui(self):
         title=QtWidgets.QLabel("Mono File Manager"); f=title.font(); f.setPointSize(18); f.setBold(True); title.setFont(f)
@@ -39,11 +43,11 @@ class MonoFileManager(QtWidgets.QDialog):
         self.shots_tabs.tabBarDoubleClicked.connect(self._rename_tab)
         self.shots_tabs.tabCloseRequested.connect(self._remove_tab)
         
+        # Per-tab control row
+        self.depth_sb=QtWidgets.QSpinBox(); self.depth_sb.setRange(1,10); self.depth_sb.setValue(1)
         self._init_type_tabs()
         # Initialize current_tabs reference
         self.current_tabs = self.shots_tabs  # Default to shots
-        # Per-tab control row
-        self.depth_sb=QtWidgets.QSpinBox(); self.depth_sb.setRange(1,10); self.depth_sb.setValue(1)
         exts_lbl=QtWidgets.QLabel(".hip, .hiplc, .hipnc (fixed)")
         b_add_tab=QtWidgets.QPushButton("+ Tab"); b_add_tab.clicked.connect(self._add_tab)
         b_scan=QtWidgets.QPushButton("Scan"); b_scan.clicked.connect(self.scan)
@@ -135,6 +139,9 @@ class MonoFileManager(QtWidgets.QDialog):
 
     # ---- Type Tabs ----
     def _init_type_tabs(self):
+        # Initialize tabs_conf
+        self.tabs_conf = load_tabs_settings(self.s)
+        
         # Setup Assets tab
         assets_layout = QtWidgets.QVBoxLayout(self.assets_tab)
         assets_layout.addWidget(self.assets_tabs)

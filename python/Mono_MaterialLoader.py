@@ -31,7 +31,12 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
             prefix, ttype, ext, udim_token, variant = parsed
             if prefix not in materials:
                 materials[prefix] = {}
-            materials[prefix][ttype] = os.path.join(folder, filename)
+            # Convert UDIM numbers to <UDIM> tag if UDIM is enabled
+            tex_path = os.path.join(folder, filename)
+            if udim and udim_token:
+                tex_path = ensure_udim_tag(tex_path)
+            
+            materials[prefix][ttype] = tex_path
     
     print(f"Found {len(materials)} materials: {list(materials.keys())}")
     
@@ -81,8 +86,8 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
                 try:
                     t_upper = ttype.upper()
                     
-                    # Displacement handling
-                    if t_upper == "DISPLACEMENT":
+                    # Displacement handling (for both DISPLACEMENT and HEIGHT)
+                    if t_upper in ["DISPLACEMENT", "HEIGHT"]:
                         disp_node = mat_builder.node("RS_Displacement")
                         if disp_node is None:
                             disp_node = mat_builder.createNode("redshift::Displacement", "RS_Displacement")
@@ -193,9 +198,38 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
                         "EMISSIVE": "emission_color",
                         "OPACITY": "opacity_color",
                         "ALPHA": "opacity_color",
+                        "NORMAL": "bump_input",
+                        "NRM": "bump_input",
+                        "NORMALMAP": "bump_input",
+                        "NORMALGL": "bump_input",
+                        "COATNORMAL": "coat_bump_input",
                     }
                     
                     port_name = port_mapping.get(t_upper)
+                    
+                    # Fallback mapping for unknown texture types
+                    if not port_name:
+                        # Skip Height/Displacement as they're handled separately
+                        if any(x in t_upper for x in ['HEIGHT', 'DISPLACE', 'DISP']):
+                            print(f"Info: Skipping '{ttype}' - handled as displacement")
+                            continue
+                        elif any(x in t_upper for x in ['NORMAL', 'NRM', 'BUMP']):
+                            port_name = "bump_input"
+                        elif any(x in t_upper for x in ['COLOR', 'ALBEDO', 'DIFFUSE', 'BASE']):
+                            port_name = "base_color"
+                        elif any(x in t_upper for x in ['ROUGH', 'RGH']):
+                            port_name = "refl_roughness"
+                        elif any(x in t_upper for x in ['METAL', 'METALLIC']):
+                            port_name = "metalness"
+                        elif any(x in t_upper for x in ['EMISS', 'GLOW']):
+                            port_name = "emission_color"
+                        elif any(x in t_upper for x in ['OPAC', 'ALPHA', 'TRANSPARENCY']):
+                            port_name = "opacity_color"
+                        else:
+                            # Default fallback - try to map to base_color
+                            port_name = "base_color"
+                            print(f"Info: Using fallback mapping for '{ttype}' -> base_color")
+                    
                     if port_name:
                         # Find the input port
                         port_idx = None
@@ -253,7 +287,12 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
             prefix, ttype, ext, udim_token, variant = parsed
             if prefix not in materials:
                 materials[prefix] = {}
-            materials[prefix][ttype] = os.path.join(folder, filename)
+            # Convert UDIM numbers to <UDIM> tag if UDIM is enabled
+            tex_path = os.path.join(folder, filename)
+            if udim and udim_token:
+                tex_path = ensure_udim_tag(tex_path)
+            
+            materials[prefix][ttype] = tex_path
     
     print(f"Found {len(materials)} materials: {list(materials.keys())}")
     
@@ -374,6 +413,23 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
     
     print(f"Successfully created {created_count} Karma materials!")
     return True
+
+def ensure_udim_tag(path_str):
+    """Convert UDIM numbers to <UDIM> tag format."""
+    if "<UDIM>" in path_str:
+        return path_str
+    patterns = [
+        (r"\.(\d{4})\.", ".<UDIM>."),
+        (r"_(\d{4})\.", "_<UDIM>."),
+        (r"\.(\d{4})_", ".<UDIM>_"),
+        (r"_(\d{4})_", "_<UDIM>_"),
+        (r"-(\d{4})\.", "-<UDIM>."),
+        (r"-(\d{4})_", "-<UDIM>_"),
+    ]
+    for pat, rep in patterns:
+        if re.search(pat, path_str):
+            return re.sub(pat, rep, path_str)
+    return path_str
 
 def parse_texture_filename(filename):
     """
