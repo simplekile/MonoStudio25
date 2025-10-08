@@ -1,0 +1,36 @@
+# Mono Studio Shelf
+# Professional Houdini production tools suite
+
+version 1.0
+
+tool File Manager
+{
+    label "File Manager"
+    icon "MISC_folder"
+    script "import hou; from mono_tools import show_mono_file_manager; show_mono_file_manager()"
+    help "File management and navigation"
+}
+
+tool MiniBar
+{
+    label "MiniBar"
+    icon "MISC_minibar"
+    script "import hou; from mono_tools import show_mono_minibar; show_mono_minibar()"
+    help "Quick file access mini bar"
+}
+
+tool Material Loader
+{
+    label "Material Loader"
+    icon "MISC_material"
+    script "import hou; from mono_tools import show_material_loader; show_material_loader()"
+    help "Material creation and loading"
+}
+
+tool Texture Search & Replace
+{
+    label "Texture Search & Replace"
+    icon "MISC_texture"
+    script "import hou; from mono_tools import show_texture_search_replace; show_texture_search_replace()"
+    help "Texture path search and replace"
+}
