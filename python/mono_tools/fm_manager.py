@@ -38,7 +38,11 @@ class MonoFileManager(QtWidgets.QDialog):
         b_copy=QtWidgets.QPushButton("Copy Path"); b_copy.clicked.connect(self._copy_selected)
         row=QtWidgets.QHBoxLayout(); row.addWidget(b_scan); row.addWidget(b_refresh); row.addStretch(1); row.addWidget(b_open); row.addWidget(b_copy)
         # Container for active tab's view
-        self.table=QtWidgets.QTableView(); self.table.setSortingEnabled(True)
+        self.model = FileTableModel(self)
+        self.proxy = QtCore.QSortFilterProxyModel(self)
+        self.proxy.setSourceModel(self.model)
+        self.proxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        self.table=QtWidgets.QTableView(); self.table.setModel(self.proxy); self.table.setSortingEnabled(True)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows); self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.table.doubleClicked.connect(self._dbl_open); self.table.verticalHeader().setVisible(False); self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setAlternatingRowColors(True)
@@ -76,7 +80,9 @@ class MonoFileManager(QtWidgets.QDialog):
         subpath=self._current_subpath();
         return os.path.join(root,subpath) if (root and subpath) else ""
     def scan(self):
-        self.model.removeRows(0,self.model.rowCount())
+        model = self._active_model()
+        if not model: return
+        model.removeRows(0,model.rowCount())
         base=self._target_dir()
         if not base or not os.path.isdir(base):
             hou.ui.displayMessage(f"Không tìm thấy thư mục:\n{base or '<empty>'}", severity=hou.severityType.Warning); return
@@ -85,13 +91,13 @@ class MonoFileManager(QtWidgets.QDialog):
                 st=os.stat(f)
                 name=os.path.basename(f); ext=os.path.splitext(name)[1].lower()
                 ver=parse_ver(name); shot=infer_shot(f); folder=os.path.dirname(f)
-                self.model.add_row(shot,ver,name,ext,folder,st.st_mtime,st.st_size,f)
+                model.add_row(shot,ver,name,ext,folder,st.st_mtime,st.st_size,f)
             except Exception: pass
         proxy=self._active_proxy(); proxy.sort(FileTableModel.COL_MOD, QtCore.Qt.DescendingOrder)
         for c in (FileTableModel.COL_SHOT,FileTableModel.COL_VER,FileTableModel.COL_EXT,FileTableModel.COL_SIZE): self.table.resizeColumnToContents(c)
         self._save()
         if hasattr(self, "_minibar_ref") and self._minibar_ref:
-            self._minibar_ref.populate_from_model(self._active_model())
+            self._minibar_ref.populate_from_model(model)
 
     # ---- Projects ----
     def _reload_projects(self):
@@ -143,6 +149,7 @@ class MonoFileManager(QtWidgets.QDialog):
 
     def _active_model(self):
         w=self.tabs.currentWidget(); return getattr(w,'model',None)
+    
     def _active_proxy(self):
         w=self.tabs.currentWidget(); return getattr(w,'proxy',None)
     def _current_subpath(self):

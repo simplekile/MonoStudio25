@@ -44,94 +44,165 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
             if not safe_name or safe_name[0].isdigit():
                 safe_name = 'mat_' + safe_name
             
-            # Try different Redshift node types for Houdini 21
-            mat_builder = None
-            try:
-                # Try MaterialX Material Builder first
-                mat_builder = matlib_node.createNode("redshift::MaterialXBuilder", safe_name)
-            except:
-                try:
-                    # Try standard Material Builder
-                    mat_builder = matlib_node.createNode("redshift::MaterialBuilder", safe_name)
-                except:
-                    try:
-                        # Try Material node directly
-                        mat_builder = matlib_node.createNode("redshift::Material", safe_name)
-                    except:
-                        print(f"Error: No valid Redshift node type found for {safe_name}")
-                        continue
-            
+            # Create rs_usd_material_builder (correct node type from original script)
+            mat_builder = matlib_node.createNode("rs_usd_material_builder", safe_name)
             mat_builder.setPosition(matlib_node.position() + position_offset)
             
-            # Create Material Output if we have a MaterialXBuilder
-            if mat_builder.type().name() == "redshift::MaterialXBuilder":
-                output = mat_builder.createNode("redshift::MaterialOutput")
-                output.setPosition((0, 0))
-                
-                # Create Surface Shader
-                surface = mat_builder.createNode("redshift::Material")
-                surface.setPosition((-200, 0))
-                output.setInput(0, surface, 0)
-            else:
-                # For direct Material node, we'll connect textures directly
-                surface = mat_builder
+            # Find existing StandardMaterial1 and redshift_usd_material1 nodes
+            rs_mat = None
+            usd_mat = None
             
-            # Create texture nodes for each type
-            for ttype, tex_path in textures.items():
+            # Look for StandardMaterial1
+            for child in mat_builder.children():
+                if child.name() == "StandardMaterial1" or "standardmaterial" in child.name().lower():
+                    rs_mat = child
+                    break
+            
+            # Look for redshift_usd_material1
+            for child in mat_builder.children():
+                if child.name() == "redshift_usd_material1" or "redshift_usd_material" in child.name().lower():
+                    usd_mat = child
+                    break
+            
+            if not rs_mat or not usd_mat:
+                print(f"Warning: Could not find StandardMaterial1 or redshift_usd_material1 in {safe_name}")
+                continue
+            
+            # Create texture nodes for each type using original script logic
+            base_x, base_y = mat_builder.position()
+            
+            for idx, (ttype, tex_path) in enumerate(sorted(textures.items())):
                 try:
-                    if ttype == "basecolor":
-                        # Base Color
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_basecolor")
-                        tex_node.parm("tex0").set(tex_path)
-                        surface.setInput(0, tex_node, 0)  # Base Color
+                    t_upper = ttype.upper()
+                    
+                    # Displacement handling
+                    if t_upper == "DISPLACEMENT":
+                        disp_node = mat_builder.node("RS_Displacement")
+                        if disp_node is None:
+                            disp_node = mat_builder.createNode("redshift::Displacement", "RS_Displacement")
+                            
+                        disp_node.setPosition((base_x + 1.5, base_y - 1.0 - idx))
                         
-                    elif ttype == "roughness":
-                        # Roughness
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_roughness")
-                        tex_node.parm("tex0").set(tex_path)
-                        surface.setInput(4, tex_node, 0)  # Roughness
+                        # Set texture path
+                        tex_parm = disp_node.parm("tex0") or disp_node.parm("tex")
+                        if tex_parm:
+                            tex_parm.set(tex_path)
                         
-                    elif ttype == "metallic":
-                        # Metallic
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_metallic")
-                        tex_node.parm("tex0").set(tex_path)
-                        surface.setInput(5, tex_node, 0)  # Metallic
+                        # Set colorspace to Raw for displacement
+                        cs_parm = disp_node.parm("tex0_colorSpace") or disp_node.parm("tex_colorSpace")
+                        if cs_parm:
+                            cs_parm.set("Utility - Raw")
+                            
+                        if enable_udim:
+                            udim_parm = disp_node.parm("udim_enable")
+                            if udim_parm:
+                                udim_parm.set(1)
                         
-                    elif ttype == "normal":
-                        # Normal
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_normal")
-                        tex_node.parm("tex0").set(tex_path)
-                        normal_map = mat_builder.createNode("redshift::BumpMap")
-                        normal_map.setInput(0, tex_node, 0)
-                        surface.setInput(6, normal_map, 0)  # Normal
+                        # Connect to USD material displacement input
+                        disp_port_idx = None
+                        for i, nm in enumerate(usd_mat.inputNames() or []):
+                            if nm and "displacement" in nm.lower():
+                                disp_port_idx = i
+                                break
+                        if disp_port_idx is not None:
+                            usd_mat.setInput(disp_port_idx, disp_node, 0)
+                        continue
+
+                    # Normal map handling
+                    if t_upper in {"NRM", "NORMAL", "NORMALGL", "NORMALMAP", "COATNORMAL"}:
+                        nrm = mat_builder.node(f"NormalMap_{ttype}")
+                        if nrm is None:
+                            nrm = mat_builder.createNode("redshift::NormalMap", f"NormalMap_{ttype}")
+                            
+                        nrm.setPosition((base_x + 1.0, base_y - 1.0 - idx))
                         
-                    elif ttype == "height":
-                        # Displacement
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_height")
-                        tex_node.parm("tex0").set(tex_path)
-                        surface.setInput(7, tex_node, 0)  # Displacement
+                        # Set texture path
+                        tex_parm = nrm.parm("tex0")
+                        if tex_parm:
+                            tex_parm.set(tex_path)
                         
-                    elif ttype == "emissive":
-                        # Emissive
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_emissive")
-                        tex_node.parm("tex0").set(tex_path)
-                        surface.setInput(8, tex_node, 0)  # Emissive
+                        # Set colorspace to Raw for normal maps
+                        cs_parm = nrm.parm("tex0_colorSpace")
+                        if cs_parm:
+                            cs_parm.set("Utility - Raw")
+                            
+                        if enable_udim:
+                            udim_parm = nrm.parm("udim_enable")
+                            if udim_parm:
+                                udim_parm.set(1)
                         
-                    elif ttype == "opacity":
-                        # Opacity
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_opacity")
-                        tex_node.parm("tex0").set(tex_path)
-                        surface.setInput(9, tex_node, 0)  # Opacity
+                        # Connect to bump_input
+                        bump_port_idx = None
+                        for i, nm in enumerate(rs_mat.inputNames() or []):
+                            if nm and "bump" in nm.lower():
+                                bump_port_idx = i
+                                break
+                        if bump_port_idx is not None:
+                            rs_mat.setInput(bump_port_idx, nrm, 0)
+                        continue
+
+                    # Regular texture sampler
+                    ts = mat_builder.node(f"TS_{ttype}")
+                    if ts is None:
+                        ts = mat_builder.createNode("redshift::TextureSampler", f"TS_{ttype}")
                         
-                    elif ttype == "occlusion":
-                        # AO
-                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_ao")
-                        tex_node.parm("tex0").set(tex_path)
-                        # AO typically goes to a multiply node with base color
-                        multiply = mat_builder.createNode("redshift::RSMultiply")
-                        multiply.setInput(0, surface, 0)  # Base Color
-                        multiply.setInput(1, tex_node, 0)  # AO
-                        surface.setInput(0, multiply, 0)  # Replace base color with multiplied result
+                    ts.setPosition((base_x + 1.0, base_y - 1.0 - idx))
+                    
+                    # Set texture path
+                    tex_parm = ts.parm("tex0")
+                    if tex_parm:
+                        tex_parm.set(tex_path)
+
+                    # Set colorspace based on texture type
+                    cs_parm = ts.parm("tex0_colorSpace")
+                    if cs_parm:
+                        # Non-color textures should use Raw
+                        NONCOLOR_FORCE_RAW = {
+                            "NRM", "NORMAL", "NORMALGL", "NORMALMAP", "COATNORMAL",
+                            "ROUGHNESS", "COATROUGHNESS",
+                            "METALNESS", "METAL", "METALNESSMAP",
+                            "OPACITY", "ALPHA",
+                            "EMISSIVE", "DISPLACEMENT",
+                            "TRANSLUCENCY", "SCATTERING"
+                        }
+                        if t_upper in NONCOLOR_FORCE_RAW:
+                            cs_parm.set("Utility - Raw")
+                        # else: leave as Auto for color textures
+
+                    if enable_udim:
+                        udim_parm = ts.parm("udim_enable")
+                        if udim_parm:
+                            udim_parm.set(1)
+
+                    # Map to appropriate input based on texture type
+                    port_mapping = {
+                        "BASECOLOR": "base_color",
+                        "COLOR": "base_color", 
+                        "ALBEDO": "base_color",
+                        "DIFFUSE": "base_color",
+                        "ROUGHNESS": "refl_roughness",
+                        "METALNESS": "metalness",
+                        "METALLIC": "metalness",
+                        "EMISSION": "emission_color",
+                        "EMISSIVE": "emission_color",
+                        "OPACITY": "opacity_color",
+                        "ALPHA": "opacity_color",
+                    }
+                    
+                    port_name = port_mapping.get(t_upper)
+                    if port_name:
+                        # Find the input port
+                        port_idx = None
+                        for i, nm in enumerate(rs_mat.inputNames() or []):
+                            if nm and port_name in nm.lower():
+                                port_idx = i
+                                break
+                        if port_idx is not None:
+                            rs_mat.setInput(port_idx, ts, 0)
+                        else:
+                            print(f"Warning: Could not find input port '{port_name}' for texture '{ttype}'")
+                    else:
+                        print(f"Warning: No mapping found for texture type '{ttype}'")
                         
                 except Exception as tex_error:
                     print(f"Warning: Could not create texture node for {ttype}: {tex_error}")
@@ -294,106 +365,45 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
     return True
 
 def parse_texture_filename(filename):
-    """Parse texture filename to extract material name, type, and UDIM info"""
+    """
+    Parse texture filename to extract material name, type, UDIM, and colorspace info.
+    Based on the original script's parser with improved detection.
+    """
     import os
     import re
     
     name = os.path.basename(filename)
     stem, ext = os.path.splitext(name)
-    lower = stem.lower()
-    
-    # UDIM detection
-    udim = None
-    # Check for <UDIM> or {UDIM} tokens
-    for token in ["<udim>", "{udim}"]:
-        if token in lower:
-            udim = token
-            break
-    
-    # Check for 4-digit UDIM numbers (1001-1999)
-    if udim is None:
-        udim_match = re.search(r'(\d{4})', stem)
-        if udim_match:
-            udim_num = int(udim_match.group(1))
-            if 1001 <= udim_num <= 1999:
-                udim = udim_match.group(1)
-    
-    # Remove UDIM tokens for type detection
-    clean_stem = lower
-    if udim:
-        clean_stem = clean_stem.replace(udim.lower(), '')
-    
-    # Texture type mapping (more comprehensive)
-    type_patterns = {
-        'basecolor': ['basecolor', 'albedo', 'diffuse', 'color', 'col', 'base', 'diff'],
-        'roughness': ['roughness', 'rough', 'rgh'],
-        'metallic': ['metallic', 'metalness', 'metal', 'met'],
-        'normal': ['normal', 'nrml', 'nrm', 'n'],
-        'height': ['height', 'displacement', 'disp', 'h', 'd'],
-        'specular': ['specular', 'spec', 's'],
-        'emissive': ['emissive', 'emit', 'emission', 'e'],
-        'opacity': ['opacity', 'alpha', 'transparency', 'trans', 'a'],
-        'occlusion': ['ao', 'occlusion', 'ambient'],
-        'gloss': ['gloss', 'glossiness'],
-        'f0': ['f0', 'fresnel'],
-        'coat': ['coat', 'clearcoat'],
-        'coat_roughness': ['coatroughness', 'coat_rough', 'clearcoat_rough'],
-    }
-    
-    # Find texture type
-    detected_type = None
-    for ttype, patterns in type_patterns.items():
-        for pattern in patterns:
-            if pattern in clean_stem:
-                detected_type = ttype
-                break
-        if detected_type:
-            break
-    
-    # Try suffix patterns (e.g., _bc, _r, _m, _n)
-    if not detected_type:
-        suffix_map = {
-            'bc': 'basecolor',
-            'r': 'roughness', 
-            'rough': 'roughness',
-            'm': 'metallic',
-            'metal': 'metallic',
-            'n': 'normal',
-            'norm': 'normal',
-            'h': 'height',
-            'd': 'height',
-            's': 'specular',
-            'e': 'emissive',
-            'emit': 'emissive',
-            'a': 'opacity',
-            'ao': 'occlusion',
-            'g': 'gloss',
-            'f0': 'f0',
-            'c': 'coat',
-            'cr': 'coat_roughness',
-        }
-        
-        # Check last part after underscore or dash
-        parts = re.split(r'[_-]', clean_stem)
-        if parts:
-            last_part = parts[-1]
-            if last_part in suffix_map:
-                detected_type = suffix_map[last_part]
-    
-    if not detected_type:
+    if not ext:
+        return None
+
+    parts = stem.split('.')
+    if len(parts) < 2:
+        return None
+
+    udim = parts[-1] if parts[-1].isdigit() and len(parts[-1]) == 4 else None
+    if not udim:
+        return None
+
+    main_part = parts[-2]
+    raw_colorspace_name = None
+
+    # Extract colorspace from " - <ColorSpaceName>" pattern
+    if ' - ' in main_part:
+        left, right = main_part.split(' - ', 1)
+        raw_colorspace_name = right.strip()  # ACEScg / Raw / sRGB ...
+        main_part = left
+
+    # Remove suffix colorspace family if present (ACES/Utility/Raw/sRGB)
+    tokens = main_part.split('_')
+    LOWERS = {"aces", "utility", "raw", "srgb"}
+    if len(tokens) > 1 and tokens[-1].lower() in LOWERS:
+        tokens = tokens[:-1]
+
+    texture_type = tokens[-1] if tokens else ""
+    prefix = '_'.join(tokens[:-1]) if len(tokens) > 1 else ""
+
+    if not texture_type:
         return None
     
-    # Extract material name (everything before the type indicator)
-    material_name = stem
-    if udim:
-        material_name = material_name.replace(udim, '')
-    
-    # Remove type indicators from material name
-    for ttype, patterns in type_patterns.items():
-        for pattern in patterns:
-            material_name = re.sub(r'[_-]?' + re.escape(pattern) + r'[_-]?', '', material_name, flags=re.IGNORECASE)
-    
-    # Clean up material name
-    material_name = re.sub(r'[_-]+', '_', material_name).strip('_-')
-    
-    return (material_name, detected_type, ext.lstrip('.'), udim or '', '')
+    return prefix, texture_type, udim, ext, raw_colorspace_name
