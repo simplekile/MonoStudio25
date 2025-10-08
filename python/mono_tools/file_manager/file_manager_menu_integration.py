@@ -5,7 +5,7 @@ Tích hợp File Manager vào menu Houdini
 
 import hou
 from .file_manager import show_mono_file_manager
-from .file_manager_minibar import show_mono_minibar
+from .file_manager_api import show_mono_minibar
 
 def add_file_manager_to_menu():
     """Thêm File Manager vào menu Houdini"""

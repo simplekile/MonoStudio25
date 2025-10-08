@@ -9,12 +9,9 @@ def auto_load_mono_studio():
         print("🚀 Auto-loading Mono Studio...")
         print("📦 Importing required modules...")
         
-        # Import and show MiniBar
-        from mono_tools.file_manager import show_mono_minibar
-        from mono_tools.texture_search_replace import show_texture_search_replace, setup_texture_tools
-        from mono_tools.material_loader import show_material_loader
-        from mono_tools.file_manager import setup_file_manager_tools
-        from mono_tools.material_loader import setup_material_loader_tools
+        # Import and setup tools
+        from mono_tools import setup_file_manager_tools, setup_material_loader_tools, setup_texture_tools
+        from mono_tools import show_mono_minibar, show_texture_search_replace, show_material_loader
         from mono_tools.qt import QtCore
         import hou
         print("✅ All modules imported successfully")
@@ -66,5 +63,6 @@ def auto_load_mono_studio():
         traceback.print_exc()
         return False
 
-# Execute auto-load
-auto_load_mono_studio()
+# Execute auto-load only when run directly
+if __name__ == "__main__":
+    auto_load_mono_studio()
