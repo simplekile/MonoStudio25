@@ -57,8 +57,8 @@ def setup_mono_studio_shelf():
         # 2. Tạo thư mục nếu chưa có
         os.makedirs(shelves_path, exist_ok=True)
         
-        # 3. Copy file shelf
-        source_file = "shelves/MonoStudio.shelf"
+        # 3. Copy file shelf (use XML format)
+        source_file = "shelves/MonoStudio_XML.shelf"
         dest_file = os.path.join(shelves_path, "MonoStudio.shelf")
         
         if os.path.exists(source_file):
