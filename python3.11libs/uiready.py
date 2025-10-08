@@ -30,7 +30,12 @@ try:
     # Confirm Qt backend via shim, then import tools
     from mono_tools.qt import API as QT_API
     print(f"🧩 Qt API selected: PySide{QT_API}")
-    from mono_tools.file_manager import show_mono_minibar
+    # Import orchestrator API (preferred) and log resolution
+    from mono_tools import show_mono_minibar
+    import inspect, importlib
+    provider_mod = importlib.import_module(show_mono_minibar.__module__)
+    provider_file = getattr(provider_mod, "__file__", "<unknown>")
+    print(f"🔎 show_mono_minibar provider: {show_mono_minibar.__module__} -> {provider_file}")
     import hou
     
     print("📦 Modules imported successfully")
