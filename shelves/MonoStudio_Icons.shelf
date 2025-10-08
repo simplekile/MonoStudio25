@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <shelfDocument>
-  <!-- Mono Studio Tools Shelf -->
+  <!-- Mono Studio Tools Shelf with Houdini Default Icons -->
   
   <toolshelf name="MonoStudio" label="Mono Studio">
     <memberTool name="File_Manager"/>
