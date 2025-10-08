@@ -6,6 +6,7 @@ This provides placeholder functions when the real backend is not available.
 def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, position_offset=(0.0, 0.0)):
     """Create Redshift materials from texture folder"""
     import os
+    import re
     import hou
     
     print(f"Creating Redshift materials from {folder}")
@@ -222,6 +223,7 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
 def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udim, position_offset=(0.0, 0.0)):
     """Create Karma materials from texture folder"""
     import os
+    import re
     import hou
     
     print(f"Creating Karma materials from {folder}")
