@@ -1,0 +1,69 @@
+version 1.0
+toolbar MonoStudio
+{
+    tool File_Manager
+    {
+        label "File Manager"
+        icon "MISC_folder"
+        script
+        {
+            import hou
+            from mono_tools import show_mono_file_manager
+            show_mono_file_manager()
+        }
+    }
+    
+    tool MiniBar
+    {
+        label "MiniBar"
+        icon "MISC_minibar"
+        script
+        {
+            import hou
+            from mono_tools import show_mono_minibar
+            show_mono_minibar()
+        }
+    }
+    
+    tool Material_Loader
+    {
+        label "Material Loader"
+        icon "MISC_material"
+        script
+        {
+            import hou
+            from mono_tools import show_material_loader
+            show_material_loader()
+        }
+    }
+    
+    tool Texture_Tools
+    {
+        label "Texture Tools"
+        icon "MISC_texture"
+        script
+        {
+            import hou
+            from mono_tools import show_texture_search_replace
+            show_texture_search_replace()
+        }
+    }
+    
+    tool All_Tools
+    {
+        label "All Tools"
+        icon "MISC_all"
+        script
+        {
+            import hou
+            from mono_tools import show_mono_file_manager, show_mono_minibar, show_material_loader, show_texture_search_replace
+            
+            show_mono_file_manager()
+            show_mono_minibar()
+            show_material_loader()
+            show_texture_search_replace()
+            
+            print("All Mono Studio tools opened!")
+        }
+    }
+}
