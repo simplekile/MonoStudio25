@@ -118,6 +118,20 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                     self.combo.blockSignals(True); self.combo.setCurrentIndex(i); self.combo.blockSignals(False); self._update_shot_display(i)
                 break
 
+    def _update_shot_display(self, idx):
+        if idx >= 0 and idx < self.combo.count():
+            fp = self.combo.itemData(idx, role=QtCore.Qt.UserRole)
+            if fp:
+                shot = self.combo.itemData(idx, role=QtCore.Qt.UserRole+2) or infer_shot(fp) or "Unknown"
+                self.shot_display.setText(shot)
+                self.shot_display.setToolTip(f"Current: {shot}\nClick to change")
+            else:
+                self.shot_display.setText("No files")
+                self.shot_display.setToolTip("No files available")
+        else:
+            self.shot_display.setText("No files")
+            self.shot_display.setToolTip("No files available")
+
     # ---- Positioning relative to main window ----
     def _save_relative_position(self):
         try:
@@ -424,5 +438,17 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             shot_name = model.item(r, 0).text()
             if p: paths.append(p); shot_names[p]=shot_name
         self.populate(paths, shot_names)
+
+    def _setup_main_window_monitoring(self):
+        """Setup monitoring của Houdini main window để update position khi cần"""
+        try:
+            mw = hou.qt.mainWindow()
+            if mw:
+                # Install event filter để catch main window move/resize events
+                if not hasattr(self, '_main_window_filter'):
+                    self._main_window_filter = MainWindowEventFilter(self)
+                    mw.installEventFilter(self._main_window_filter)
+        except:
+            pass  # Fail silently if can't setup monitoring
 
 
