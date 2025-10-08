@@ -10,7 +10,7 @@ def add_material_loader_to_menu():
     """Thêm Material Loader vào menu Houdini"""
     try:
         # Tìm hoặc tạo menu Mono Studio
-        main_menu = hou.menuBar()
+        main_menu = hou.ui.mainMenuBar()
         
         # Tìm menu Mono Studio
         mono_menu = None
@@ -37,9 +37,10 @@ def add_material_loader_to_menu():
 def add_material_loader_to_shelf():
     """Thêm Material Loader vào Houdini shelf"""
     try:
-        shelf = hou.shelves.shelves().get("Mono Studio")
+        shelf_tabs = hou.shelves.shelves()
+        shelf = shelf_tabs.get("Mono Studio")
         if not shelf:
-            shelf = hou.shelves.shelves().create("Mono Studio")
+            shelf = shelf_tabs.create("Mono Studio")
         
         script = """
 import hou

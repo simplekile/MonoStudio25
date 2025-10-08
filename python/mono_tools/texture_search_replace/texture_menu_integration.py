@@ -11,7 +11,7 @@ def add_texture_tools_to_menu():
     """Thêm Texture Search & Replace vào menu Houdini"""
     try:
         # Tìm hoặc tạo menu Mono Studio
-        main_menu = hou.menuBar()
+        main_menu = hou.ui.mainMenuBar()
         
         # Tìm menu Mono Studio
         mono_menu = None
@@ -43,10 +43,11 @@ def add_to_shelf():
     """Thêm Texture Search & Replace vào shelf"""
     try:
         # Lấy shelf hiện tại
-        shelf = hou.shelves.shelves().get("Mono Studio")
+        shelf_tabs = hou.shelves.shelves()
+        shelf = shelf_tabs.get("Mono Studio")
         if not shelf:
             # Tạo shelf mới nếu chưa có
-            shelf = hou.shelves.shelves().create("Mono Studio")
+            shelf = shelf_tabs.create("Mono Studio")
         
         # Tạo script cho shelf tool
         script = """
