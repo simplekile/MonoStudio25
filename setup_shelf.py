@@ -10,28 +10,28 @@ import platform
 from pathlib import Path
 
 def get_houdini_shelves_path():
-    """Tìm thư mục Houdini shelves"""
+    """Tìm thư mục Houdini toolbar (shelves)"""
     system = platform.system()
     
     if system == "Windows":
-        # Windows paths
+        # Windows paths - sử dụng toolbar thay vì shelves
         possible_paths = [
-            os.path.expanduser("~/Documents/houdini21.0/shelves"),
-            os.path.expanduser("~/Documents/houdini20.5/shelves"),
-            os.path.expanduser("~/Documents/houdini20.0/shelves"),
-            os.path.expanduser("~/Documents/houdini19.5/shelves"),
+            os.path.expanduser("~/Documents/houdini21.0/toolbar"),
+            os.path.expanduser("~/Documents/houdini20.5/toolbar"),
+            os.path.expanduser("~/Documents/houdini20.0/toolbar"),
+            os.path.expanduser("~/Documents/houdini19.5/toolbar"),
         ]
     elif system == "Darwin":  # macOS
         possible_paths = [
-            os.path.expanduser("~/Library/Preferences/houdini/21.0/shelves"),
-            os.path.expanduser("~/Library/Preferences/houdini/20.5/shelves"),
-            os.path.expanduser("~/Library/Preferences/houdini/20.0/shelves"),
+            os.path.expanduser("~/Library/Preferences/houdini/21.0/toolbar"),
+            os.path.expanduser("~/Library/Preferences/houdini/20.5/toolbar"),
+            os.path.expanduser("~/Library/Preferences/houdini/20.0/toolbar"),
         ]
     else:  # Linux
         possible_paths = [
-            os.path.expanduser("~/.houdini/21.0/shelves"),
-            os.path.expanduser("~/.houdini/20.5/shelves"),
-            os.path.expanduser("~/.houdini/20.0/shelves"),
+            os.path.expanduser("~/.houdini/21.0/toolbar"),
+            os.path.expanduser("~/.houdini/20.5/toolbar"),
+            os.path.expanduser("~/.houdini/20.0/toolbar"),
         ]
     
     # Tìm thư mục tồn tại
