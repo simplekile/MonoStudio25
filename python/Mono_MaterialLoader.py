@@ -38,74 +38,104 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
     created_count = 0
     for mat_name, textures in materials.items():
         try:
-            # Create Redshift Material Builder
-            mat_builder = matlib_node.createNode("redshift::MaterialBuilder", mat_name)
+            # Sanitize material name for Houdini
+            safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', mat_name)
+            safe_name = re.sub(r'_+', '_', safe_name).strip('_')
+            if not safe_name or safe_name[0].isdigit():
+                safe_name = 'mat_' + safe_name
+            
+            # Try different Redshift node types for Houdini 21
+            mat_builder = None
+            try:
+                # Try MaterialX Material Builder first
+                mat_builder = matlib_node.createNode("redshift::MaterialXBuilder", safe_name)
+            except:
+                try:
+                    # Try standard Material Builder
+                    mat_builder = matlib_node.createNode("redshift::MaterialBuilder", safe_name)
+                except:
+                    try:
+                        # Try Material node directly
+                        mat_builder = matlib_node.createNode("redshift::Material", safe_name)
+                    except:
+                        print(f"Error: No valid Redshift node type found for {safe_name}")
+                        continue
+            
             mat_builder.setPosition(matlib_node.position() + position_offset)
             
-            # Create Material Output
-            output = mat_builder.createNode("redshift::MaterialOutput")
-            output.setPosition((0, 0))
-            
-            # Create Surface Shader
-            surface = mat_builder.createNode("redshift::Material")
-            surface.setPosition((-200, 0))
-            output.setInput(0, surface, 0)
+            # Create Material Output if we have a MaterialXBuilder
+            if mat_builder.type().name() == "redshift::MaterialXBuilder":
+                output = mat_builder.createNode("redshift::MaterialOutput")
+                output.setPosition((0, 0))
+                
+                # Create Surface Shader
+                surface = mat_builder.createNode("redshift::Material")
+                surface.setPosition((-200, 0))
+                output.setInput(0, surface, 0)
+            else:
+                # For direct Material node, we'll connect textures directly
+                surface = mat_builder
             
             # Create texture nodes for each type
             for ttype, tex_path in textures.items():
-                if ttype == "basecolor":
-                    # Base Color
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_basecolor")
-                    tex_node.parm("tex0").set(tex_path)
-                    surface.setInput(0, tex_node, 0)  # Base Color
-                    
-                elif ttype == "roughness":
-                    # Roughness
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_roughness")
-                    tex_node.parm("tex0").set(tex_path)
-                    surface.setInput(4, tex_node, 0)  # Roughness
-                    
-                elif ttype == "metallic":
-                    # Metallic
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_metallic")
-                    tex_node.parm("tex0").set(tex_path)
-                    surface.setInput(5, tex_node, 0)  # Metallic
-                    
-                elif ttype == "normal":
-                    # Normal
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_normal")
-                    tex_node.parm("tex0").set(tex_path)
-                    normal_map = mat_builder.createNode("redshift::BumpMap")
-                    normal_map.setInput(0, tex_node, 0)
-                    surface.setInput(6, normal_map, 0)  # Normal
-                    
-                elif ttype == "height":
-                    # Displacement
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_height")
-                    tex_node.parm("tex0").set(tex_path)
-                    surface.setInput(7, tex_node, 0)  # Displacement
-                    
-                elif ttype == "emissive":
-                    # Emissive
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_emissive")
-                    tex_node.parm("tex0").set(tex_path)
-                    surface.setInput(8, tex_node, 0)  # Emissive
-                    
-                elif ttype == "opacity":
-                    # Opacity
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_opacity")
-                    tex_node.parm("tex0").set(tex_path)
-                    surface.setInput(9, tex_node, 0)  # Opacity
-                    
-                elif ttype == "occlusion":
-                    # AO
-                    tex_node = mat_builder.createNode("redshift::TextureSampler", f"{mat_name}_ao")
-                    tex_node.parm("tex0").set(tex_path)
-                    # AO typically goes to a multiply node with base color
-                    multiply = mat_builder.createNode("redshift::RSMultiply")
-                    multiply.setInput(0, surface, 0)  # Base Color
-                    multiply.setInput(1, tex_node, 0)  # AO
-                    surface.setInput(0, multiply, 0)  # Replace base color with multiplied result
+                try:
+                    if ttype == "basecolor":
+                        # Base Color
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_basecolor")
+                        tex_node.parm("tex0").set(tex_path)
+                        surface.setInput(0, tex_node, 0)  # Base Color
+                        
+                    elif ttype == "roughness":
+                        # Roughness
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_roughness")
+                        tex_node.parm("tex0").set(tex_path)
+                        surface.setInput(4, tex_node, 0)  # Roughness
+                        
+                    elif ttype == "metallic":
+                        # Metallic
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_metallic")
+                        tex_node.parm("tex0").set(tex_path)
+                        surface.setInput(5, tex_node, 0)  # Metallic
+                        
+                    elif ttype == "normal":
+                        # Normal
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_normal")
+                        tex_node.parm("tex0").set(tex_path)
+                        normal_map = mat_builder.createNode("redshift::BumpMap")
+                        normal_map.setInput(0, tex_node, 0)
+                        surface.setInput(6, normal_map, 0)  # Normal
+                        
+                    elif ttype == "height":
+                        # Displacement
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_height")
+                        tex_node.parm("tex0").set(tex_path)
+                        surface.setInput(7, tex_node, 0)  # Displacement
+                        
+                    elif ttype == "emissive":
+                        # Emissive
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_emissive")
+                        tex_node.parm("tex0").set(tex_path)
+                        surface.setInput(8, tex_node, 0)  # Emissive
+                        
+                    elif ttype == "opacity":
+                        # Opacity
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_opacity")
+                        tex_node.parm("tex0").set(tex_path)
+                        surface.setInput(9, tex_node, 0)  # Opacity
+                        
+                    elif ttype == "occlusion":
+                        # AO
+                        tex_node = mat_builder.createNode("redshift::TextureSampler", f"{safe_name}_ao")
+                        tex_node.parm("tex0").set(tex_path)
+                        # AO typically goes to a multiply node with base color
+                        multiply = mat_builder.createNode("redshift::RSMultiply")
+                        multiply.setInput(0, surface, 0)  # Base Color
+                        multiply.setInput(1, tex_node, 0)  # AO
+                        surface.setInput(0, multiply, 0)  # Replace base color with multiplied result
+                        
+                except Exception as tex_error:
+                    print(f"Warning: Could not create texture node for {ttype}: {tex_error}")
+                    continue
             
             # Layout nodes
             mat_builder.layoutChildren()
@@ -153,74 +183,104 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
     created_count = 0
     for mat_name, textures in materials.items():
         try:
-            # Create Karma Material Builder
-            mat_builder = matlib_node.createNode("karma::MaterialBuilder", mat_name)
+            # Sanitize material name for Houdini
+            safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', mat_name)
+            safe_name = re.sub(r'_+', '_', safe_name).strip('_')
+            if not safe_name or safe_name[0].isdigit():
+                safe_name = 'mat_' + safe_name
+            
+            # Try different Karma node types for Houdini 21
+            mat_builder = None
+            try:
+                # Try MaterialX Material Builder first
+                mat_builder = matlib_node.createNode("karma::MaterialXBuilder", safe_name)
+            except:
+                try:
+                    # Try standard Material Builder
+                    mat_builder = matlib_node.createNode("karma::MaterialBuilder", safe_name)
+                except:
+                    try:
+                        # Try Material node directly
+                        mat_builder = matlib_node.createNode("karma::Material", safe_name)
+                    except:
+                        print(f"Error: No valid Karma node type found for {safe_name}")
+                        continue
+            
             mat_builder.setPosition(matlib_node.position() + position_offset)
             
-            # Create Material Output
-            output = mat_builder.createNode("karma::MaterialOutput")
-            output.setPosition((0, 0))
-            
-            # Create Surface Shader
-            surface = mat_builder.createNode("karma::Material")
-            surface.setPosition((-200, 0))
-            output.setInput(0, surface, 0)
+            # Create Material Output if we have a MaterialXBuilder
+            if mat_builder.type().name() == "karma::MaterialXBuilder":
+                output = mat_builder.createNode("karma::MaterialOutput")
+                output.setPosition((0, 0))
+                
+                # Create Surface Shader
+                surface = mat_builder.createNode("karma::Material")
+                surface.setPosition((-200, 0))
+                output.setInput(0, surface, 0)
+            else:
+                # For direct Material node, we'll connect textures directly
+                surface = mat_builder
             
             # Create texture nodes for each type
             for ttype, tex_path in textures.items():
-                if ttype == "basecolor":
-                    # Base Color
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_basecolor")
-                    tex_node.parm("filename").set(tex_path)
-                    surface.setInput(0, tex_node, 0)  # Base Color
-                    
-                elif ttype == "roughness":
-                    # Roughness
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_roughness")
-                    tex_node.parm("filename").set(tex_path)
-                    surface.setInput(1, tex_node, 0)  # Roughness
-                    
-                elif ttype == "metallic":
-                    # Metallic
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_metallic")
-                    tex_node.parm("filename").set(tex_path)
-                    surface.setInput(2, tex_node, 0)  # Metallic
-                    
-                elif ttype == "normal":
-                    # Normal
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_normal")
-                    tex_node.parm("filename").set(tex_path)
-                    normal_map = mat_builder.createNode("karma::NormalMap")
-                    normal_map.setInput(0, tex_node, 0)
-                    surface.setInput(3, normal_map, 0)  # Normal
-                    
-                elif ttype == "height":
-                    # Displacement
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_height")
-                    tex_node.parm("filename").set(tex_path)
-                    surface.setInput(4, tex_node, 0)  # Displacement
-                    
-                elif ttype == "emissive":
-                    # Emissive
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_emissive")
-                    tex_node.parm("filename").set(tex_path)
-                    surface.setInput(5, tex_node, 0)  # Emissive
-                    
-                elif ttype == "opacity":
-                    # Opacity
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_opacity")
-                    tex_node.parm("filename").set(tex_path)
-                    surface.setInput(6, tex_node, 0)  # Opacity
-                    
-                elif ttype == "occlusion":
-                    # AO
-                    tex_node = mat_builder.createNode("karma::Texture", f"{mat_name}_ao")
-                    tex_node.parm("filename").set(tex_path)
-                    # AO typically goes to a multiply node with base color
-                    multiply = mat_builder.createNode("karma::Multiply")
-                    multiply.setInput(0, surface, 0)  # Base Color
-                    multiply.setInput(1, tex_node, 0)  # AO
-                    surface.setInput(0, multiply, 0)  # Replace base color with multiplied result
+                try:
+                    if ttype == "basecolor":
+                        # Base Color
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_basecolor")
+                        tex_node.parm("filename").set(tex_path)
+                        surface.setInput(0, tex_node, 0)  # Base Color
+                        
+                    elif ttype == "roughness":
+                        # Roughness
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_roughness")
+                        tex_node.parm("filename").set(tex_path)
+                        surface.setInput(1, tex_node, 0)  # Roughness
+                        
+                    elif ttype == "metallic":
+                        # Metallic
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_metallic")
+                        tex_node.parm("filename").set(tex_path)
+                        surface.setInput(2, tex_node, 0)  # Metallic
+                        
+                    elif ttype == "normal":
+                        # Normal
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_normal")
+                        tex_node.parm("filename").set(tex_path)
+                        normal_map = mat_builder.createNode("karma::NormalMap")
+                        normal_map.setInput(0, tex_node, 0)
+                        surface.setInput(3, normal_map, 0)  # Normal
+                        
+                    elif ttype == "height":
+                        # Displacement
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_height")
+                        tex_node.parm("filename").set(tex_path)
+                        surface.setInput(4, tex_node, 0)  # Displacement
+                        
+                    elif ttype == "emissive":
+                        # Emissive
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_emissive")
+                        tex_node.parm("filename").set(tex_path)
+                        surface.setInput(5, tex_node, 0)  # Emissive
+                        
+                    elif ttype == "opacity":
+                        # Opacity
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_opacity")
+                        tex_node.parm("filename").set(tex_path)
+                        surface.setInput(6, tex_node, 0)  # Opacity
+                        
+                    elif ttype == "occlusion":
+                        # AO
+                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_ao")
+                        tex_node.parm("filename").set(tex_path)
+                        # AO typically goes to a multiply node with base color
+                        multiply = mat_builder.createNode("karma::Multiply")
+                        multiply.setInput(0, surface, 0)  # Base Color
+                        multiply.setInput(1, tex_node, 0)  # AO
+                        surface.setInput(0, multiply, 0)  # Replace base color with multiplied result
+                        
+                except Exception as tex_error:
+                    print(f"Warning: Could not create texture node for {ttype}: {tex_error}")
+                    continue
             
             # Layout nodes
             mat_builder.layoutChildren()
