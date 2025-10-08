@@ -11,7 +11,7 @@ def add_file_manager_to_menu():
     """Thêm File Manager vào menu Houdini"""
     try:
         # Tìm hoặc tạo menu Mono Studio
-        main_menu = hou.menuBar()
+        main_menu = hou.ui.mainMenuBar()
         
         # Tìm menu Mono Studio
         mono_menu = None
@@ -42,9 +42,11 @@ def add_file_manager_to_menu():
 def add_file_manager_to_shelf():
     """Thêm File Manager vào Houdini shelf"""
     try:
-        shelf = hou.shelves.shelves().get("Mono Studio")
+        # Sử dụng Houdini shelf API đúng cách
+        shelf_tabs = hou.shelves.shelves()
+        shelf = shelf_tabs.get("Mono Studio")
         if not shelf:
-            shelf = hou.shelves.shelves().create("Mono Studio")
+            shelf = shelf_tabs.create("Mono Studio")
         
         # File Manager tool
         file_manager_script = """
