@@ -416,6 +416,8 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
 
 def ensure_udim_tag(path_str):
     """Convert UDIM numbers to <UDIM> tag format."""
+    import re
+    
     if "<UDIM>" in path_str:
         return path_str
     patterns = [
