@@ -1,5 +1,7 @@
 # 🎨 Houdini Default Icons Guide
 
+> **Reference**: [houdini-icons.dev](https://houdini-icons.dev/) - Complete Houdini Icons Database
+
 ## 📋 **Các icon mặc định có sẵn trong Houdini**
 
 ### **🔧 MISC Icons (Miscellaneous)**
