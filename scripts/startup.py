@@ -1,16 +1,16 @@
 """
-Mono Studio Startup Script
-Auto-loads Mono Studio tools when Houdini starts
+Mono Studio Package Startup
+This script runs when the package is loaded by Houdini
 """
 
 import hou
 import os
 import sys
 
-def setup_mono_studio():
-    """Setup Mono Studio tools in Houdini"""
+def package_startup():
+    """Package startup function called by Houdini"""
     try:
-        print("🎬 Mono Studio v2.0.0 - Initializing...")
+        print("🎬 Mono Studio v2.0.0 - Package Loading...")
         
         # Add python path if not already added
         mono_studio_path = os.environ.get('MONO_STUDIO')
@@ -43,18 +43,14 @@ def setup_mono_studio():
         except Exception as e:
             print(f"⚠️ MiniBar error: {e}")
         
-        print("🎉 Mono Studio ready!")
+        print("🎉 Mono Studio package ready!")
         return True
         
     except Exception as e:
-        print(f"❌ Mono Studio startup failed: {e}")
+        print(f"❌ Mono Studio package startup failed: {e}")
         import traceback
         traceback.print_exc()
         return False
 
-# Run setup
-if __name__ == "__main__":
-    setup_mono_studio()
-else:
-    # Auto-run when imported
-    setup_mono_studio()
+# This function will be called by Houdini when the package loads
+package_startup()
