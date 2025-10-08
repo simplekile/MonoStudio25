@@ -77,8 +77,14 @@ class MonoFileManager(QtWidgets.QDialog):
         self.root_le.setText(self.s.value("root_dir", DEFAULT_ROOT, type=str))
     def _target_dir(self):
         root=self.root_le.text().strip();
+        project=self.project_cb.currentText().strip();
         subpath=self._current_subpath();
-        return os.path.join(root,subpath) if (root and subpath) else ""
+        if root and project and subpath:
+            return os.path.join(root, project, subpath)
+        elif root and subpath:
+            return os.path.join(root, subpath)
+        else:
+            return ""
     def scan(self):
         model = self._active_model()
         if not model: return
@@ -116,13 +122,8 @@ class MonoFileManager(QtWidgets.QDialog):
         name=self.project_cb.currentText()
         if name:
             self.s.setValue("selected_project", name); self.s.sync()
-            # Optionally set root to selected project directory
-            root=self.root_le.text().strip() or DEFAULT_ROOT
-            proj_dir=os.path.join(root, name)
-            if os.path.isdir(proj_dir):
-                # do not overwrite root; dropdown just selects project context if needed
-                pass
-        self.scan()
+            # Auto-scan when project changes
+            QtCore.QTimer.singleShot(100, self.scan)
 
     # ---- Tabs ----
     def _init_tabs(self):
