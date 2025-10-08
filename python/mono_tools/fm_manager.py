@@ -106,7 +106,9 @@ class MonoFileManager(QtWidgets.QDialog):
                 model.add_row(shot,ver,name,ext,folder,st.st_mtime,st.st_size,f)
             except Exception: pass
         proxy=self._active_proxy(); proxy.sort(FileTableModel.COL_MOD, QtCore.Qt.DescendingOrder)
-        for c in (FileTableModel.COL_SHOT,FileTableModel.COL_VER,FileTableModel.COL_EXT,FileTableModel.COL_SIZE): self.table.resizeColumnToContents(c)
+        if self.table:
+            for c in (FileTableModel.COL_SHOT,FileTableModel.COL_VER,FileTableModel.COL_EXT,FileTableModel.COL_SIZE): 
+                self.table.resizeColumnToContents(c)
         self._save()
         if hasattr(self, "_minibar_ref") and self._minibar_ref:
             self._minibar_ref.populate_from_model(model)
@@ -184,9 +186,10 @@ class MonoFileManager(QtWidgets.QDialog):
         self.s.setValue("current_type", "Assets" if idx == 0 else "Shots")
         self.s.sync()
         
-        # Update current tab reference
+        # Update current tab reference and scan
         self._bind_active_tab()
-        self.scan()
+        if self.table:  # Only scan if table is available
+            self.scan()
 
     # ---- Tabs ----
     def _init_tabs(self):
@@ -219,12 +222,17 @@ class MonoFileManager(QtWidgets.QDialog):
         return self._create_type_tab(self.current_tabs, conf)
 
     def _on_tab_changed(self, idx):
-        self._bind_active_tab(); self.scan()
+        self._bind_active_tab()
+        if self.table:  # Only scan if table is available
+            self.scan()
 
     def _bind_active_tab(self):
         if not hasattr(self, 'current_tabs'):
             self.current_tabs = self.shots_tabs  # Default to shots
         
+        if not self.current_tabs:
+            return
+            
         w=self.current_tabs.currentWidget()
         if not w: return
         self.table = w.table; self.depth_sb.setValue(getattr(w,'depth',1))
