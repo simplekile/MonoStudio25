@@ -1,0 +1,120 @@
+version 1.0
+toolbar MonoStudio
+{
+    tool File_Manager
+    {
+        label "File Manager"
+        icon "MISC_folder"
+        script
+        {
+            import hou
+            from mono_tools import show_mono_file_manager
+            show_mono_file_manager()
+        }
+    }
+    
+    tool MiniBar
+    {
+        label "MiniBar"
+        icon "MISC_minibar"
+        script
+        {
+            import hou
+            from mono_tools import show_mono_minibar
+            show_mono_minibar()
+        }
+    }
+    
+    tool Material_Loader
+    {
+        label "Material Loader"
+        icon "MISC_material"
+        script
+        {
+            import hou
+            from mono_tools import show_material_loader
+            show_material_loader()
+        }
+    }
+    
+    tool Texture_Tools
+    {
+        label "Texture Tools"
+        icon "MISC_texture"
+        script
+        {
+            import hou
+            from mono_tools import show_texture_search_replace
+            show_texture_search_replace()
+        }
+    }
+    
+    separator
+    
+    tool All_Tools
+    {
+        label "All Tools"
+        icon "MISC_all"
+        script
+        {
+            import hou
+            from mono_tools import show_mono_file_manager, show_mono_minibar, show_material_loader, show_texture_search_replace
+            
+            # Show all tools
+            show_mono_file_manager()
+            show_mono_minibar()
+            show_material_loader()
+            show_texture_search_replace()
+            
+            print("🎬 All Mono Studio tools opened!")
+        }
+    }
+    
+    tool Refresh_Tools
+    {
+        label "Refresh Tools"
+        icon "MISC_refresh"
+        script
+        {
+            import hou
+            import importlib
+            import sys
+            
+            # Reload mono_tools modules
+            modules_to_reload = [
+                'mono_tools',
+                'mono_tools.file_manager',
+                'mono_tools.file_manager.file_manager_api',
+                'mono_tools.file_manager.file_manager_minibar',
+                'mono_tools.material_loader',
+                'mono_tools.texture_search_replace'
+            ]
+            
+            for module_name in modules_to_reload:
+                if module_name in sys.modules:
+                    importlib.reload(sys.modules[module_name])
+            
+            print("🔄 Mono Studio tools refreshed!")
+        }
+    }
+    
+    tool Help
+    {
+        label "Help"
+        icon "MISC_help"
+        script
+        {
+            import hou
+            hou.ui.displayMessage(
+                "Mono Studio v2.0.0\n\n"
+                "Available Tools:\n"
+                "• File Manager - Project navigation\n"
+                "• MiniBar - Quick file access\n"
+                "• Material Loader - Material management\n"
+                "• Texture Tools - Search & replace\n\n"
+                "For more info, visit: https://github.com/simplekile/MonoStudio25",
+                severity=hou.severityType.Message
+            )
+        }
+    }
+}
