@@ -1,0 +1,10 @@
+{
+"env":[
+{"MONO_STUDIO" : "d:/Dropbox/Stock/Plugin/HOU/MonoStudio25"},
+{"MONO_VERSION" : "2.0.0"},
+{"HOUDINI_PATH" : "$MONO_STUDIO;&"},
+{"PYTHONPATH" : "$MONO_STUDIO/python;&"},
+{"HOUDINI_OTLSCAN_PATH" : "$MONO_STUDIO/otls;&"},
+{"HOUDINI_TOOLBAR_PATH" : "$MONO_STUDIO/toolbar;&"}
+]
+}
