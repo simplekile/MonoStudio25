@@ -16,7 +16,10 @@ class TextureSearchReplace(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("Texture Search & Replace")
         self.setMinimumSize(600, 500)
-        self.setModal(True)
+        
+        # Set window properties for better display in Houdini
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         
         # Backup settings
         self.backup_enabled = True
@@ -24,6 +27,31 @@ class TextureSearchReplace(QtWidgets.QDialog):
         
         self.setup_ui()
         self.load_settings()
+        
+        # Ensure proper display
+        self.ensure_visible()
+        
+    def ensure_visible(self):
+        """Đảm bảo dialog hiển thị đúng cách"""
+        try:
+            # Center dialog on parent window
+            if self.parent():
+                parent_rect = self.parent().geometry()
+                self.move(
+                    parent_rect.x() + (parent_rect.width() - self.width()) // 2,
+                    parent_rect.y() + (parent_rect.height() - self.height()) // 2
+                )
+            else:
+                # Center on screen if no parent
+                screen = QtWidgets.QApplication.primaryScreen()
+                if screen:
+                    screen_rect = screen.availableGeometry()
+                    self.move(
+                        (screen_rect.width() - self.width()) // 2,
+                        (screen_rect.height() - self.height()) // 2
+                    )
+        except Exception as e:
+            print(f"Warning: Could not center dialog: {e}")
         
     def setup_ui(self):
         """Thiết lập giao diện người dùng"""
@@ -354,8 +382,17 @@ class TextureSearchReplace(QtWidgets.QDialog):
 def show_texture_search_replace():
     """Hiển thị dialog Texture Search & Replace"""
     try:
-        dialog = TextureSearchReplace()
+        # Get Houdini main window as parent
+        main_window = hou.qt.mainWindow()
+        
+        # Create dialog with proper parent
+        dialog = TextureSearchReplace(parent=main_window)
+        
+        # Show and raise dialog
         dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        
         return dialog
     except Exception as e:
         hou.ui.displayMessage(f"Lỗi khi mở Texture Search & Replace: {str(e)}", 

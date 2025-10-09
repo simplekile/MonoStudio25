@@ -9,6 +9,9 @@ from datetime import datetime
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import hou
 
+# Import the new MonoFileManager with status bar
+from .file_manager_manager import MonoFileManager as NewMonoFileManager
+
 ORG="Mono"; APP="FileManager"
 SUBPATH=os.path.join("02_shots","03_lighting")
 HOUDINI_EXTS={".hip",".hiplc",".hipnc"}
@@ -274,7 +277,7 @@ class _Model(QtGui.QStandardItemModel):
         self.appendRow(items)
 
 # ------------------- Full Dialog -------------------
-class MonoFileManager(QtWidgets.QDialog):
+class LegacyMonoFileManager(QtWidgets.QDialog):
     def __init__(self,parent=None):
         super().__init__(parent)
         self.setWindowTitle("Mono File Manager")
@@ -1841,8 +1844,8 @@ def _make_manager():
         if w.__class__.__name__ == 'MonoFileManager':
             _active_dialog=w; return w
             
-    # Create new one if not found
-    d=MonoFileManager(hou.qt.mainWindow()); _active_dialog=d; return d
+    # Create new one if not found - use the new class with status bar
+    d=NewMonoFileManager(hou.qt.mainWindow()); _active_dialog=d; return d
 
 def show_mono_file_manager():
     d=_make_manager(); d.show(); d.raise_(); d.activateWindow(); return d
@@ -1935,7 +1938,7 @@ def debug_file_manager_selection():
     try:
         # Find active file manager dialog
         for widget in QtWidgets.QApplication.topLevelWidgets():
-            if isinstance(widget, MonoFileManager) and widget.isVisible():
+            if isinstance(widget, NewMonoFileManager) and widget.isVisible():
                 print(f"🔍 Found active File Manager")
                 
                 # Check if table has data
