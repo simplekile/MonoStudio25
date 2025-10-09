@@ -36,10 +36,6 @@ class MainWindowEventFilter(QtCore.QObject):
 
 class MonoFileMiniBar(QtWidgets.QWidget):
     def __init__(self, manager_factory, parent=None):
-        print("🔍 MonoFileMiniBar.__init__() called")
-        print(f"🔍 Parent: {parent}")
-        print(f"🔍 Manager factory: {manager_factory}")
-        
         super().__init__(parent or hou.qt.mainWindow())
         self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint)
         self.setObjectName("MonoMiniBar")
@@ -148,19 +144,15 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         # Trigger initial file refresh after UI is ready
         QtCore.QTimer.singleShot(100, self._refresh_files_for_current_tab)
         
-        self._restore_relative_position(); final_pos = self.pos(); print(f"📍 MiniBar positioned at ({final_pos.x()}, {final_pos.y()})")
-        self._update_lock_visual_feedback(); self._update_current_shot_highlighting()
+        self._restore_relative_position()
+        self._update_lock_visual_feedback()
+        self._update_current_shot_highlighting()
         
         # Auto-start MiniBar (always enabled)
-        print("🚀 Showing MiniBar...")
         self.show()
         self.raise_()
         self.activateWindow()
         print("🚀 MiniBar auto-started with Houdini")
-        print(f"📍 MiniBar visible: {self.isVisible()}")
-        print(f"📍 MiniBar geometry: {self.geometry()}")
-        print(f"📍 MiniBar parent: {self.parent()}")
-        print(f"📍 MiniBar window flags: {self.windowFlags()}")
 
     # --- a subset of methods ported from original for brevity ---
     def _shot_display_clicked(self, event):
@@ -550,17 +542,12 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     def _get_default_position(self):
         """Get default position (used for both initial load and reset)"""
         try:
-            print("🔍 Getting default position...")
-            
             # Use primary screen for positioning (more reliable)
             screen = QtWidgets.QApplication.primaryScreen()
             if not screen:
-                print("🔍 No primary screen found, using fallback")
                 return (20, 80)
             
             screen_geo = screen.availableGeometry()
-            print(f"🔍 Primary screen: {screen.name()}")
-            print(f"🔍 Screen geometry: x={screen_geo.x()}, y={screen_geo.y()}, w={screen_geo.width()}, h={screen_geo.height()}")
             
             # Position in top-right area of primary screen
             # 20px from right edge, 20px from top
@@ -568,24 +555,16 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             new_x = screen_geo.x() + screen_geo.width() - minibar_width - 20
             new_y = screen_geo.y() + 20
             
-            print(f"🔍 Initial calculation: ({new_x}, {new_y})")
-            
             # Ensure within screen bounds
             minibar_width = 400  # Approximate MiniBar width
             minibar_height = 40  # Approximate MiniBar height
             
-            old_x, old_y = new_x, new_y
             new_x = max(screen_geo.x() + 10, min(new_x, screen_geo.x() + screen_geo.width() - minibar_width - 10))
             new_y = max(screen_geo.y() + 10, min(new_y, screen_geo.y() + screen_geo.height() - minibar_height - 10))
             
-            print(f"🔍 Bounds check: ({old_x}, {old_y}) → ({new_x}, {new_y})")
-            print(f"📍 Final position: ({new_x}, {new_y}) on screen {screen.name()}")
             return (new_x, new_y)
             
         except Exception as e:
-            print(f"⚠️ Error getting default position: {e}")
-            import traceback
-            traceback.print_exc()
             return (20, 80)
 
     def _restore_relative_position(self):
@@ -1098,9 +1077,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     def _refresh_files_standalone(self):
         """Refresh files without File Manager using saved settings"""
         try:
-            print("🔄 Refreshing files in standalone mode")
-            print(f"🔍 Current type: {self.current_type}")
-            print(f"🔍 Current dept: {self.current_dept}")
             
             # Get saved settings
             root = self.s.value("project_root", "", type=str)
