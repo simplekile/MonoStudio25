@@ -57,20 +57,21 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         
         # Type menu button (dynamic from scan)
         self.type_btn = QtWidgets.QToolButton()
-        self.type_btn.setText("🏷️ Type")
         self.type_btn.setFixedSize(70, 24)
         self.type_btn.setToolTip("Select type (auto-scanned from project)")
         self.type_btn.clicked.connect(self._show_type_menu)
-        self.current_type = None
+        # Set default type and department
+        self.current_type = "_characters"  # Default to characters
         self.current_type_is_assets = True
+        self.type_btn.setText(f"🏷️ {self.current_type}")
 
         # Department menu button (departments for selected type)
         self.dept_btn = QtWidgets.QToolButton()
-        self.dept_btn.setText("📁 Dept")
         self.dept_btn.setFixedSize(70, 24)
         self.dept_btn.setToolTip("Select department")
         self.dept_btn.clicked.connect(self._show_dept_menu)
-        self.current_dept = None
+        self.current_dept = "01_geo"  # Default to first available department
+        self.dept_btn.setText(f"📁 {self.current_dept}")
         
         self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(160); self.shot_display.setMaximumWidth(160); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
