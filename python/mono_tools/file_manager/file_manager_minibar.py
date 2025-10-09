@@ -151,23 +151,16 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self._restore_relative_position(); final_pos = self.pos(); print(f"📍 MiniBar positioned at ({final_pos.x()}, {final_pos.y()})")
         self._update_lock_visual_feedback(); self._update_current_shot_highlighting()
         
-        # Check if should auto-start
-        startup_setting = self.s.value("minibar_startup_with_hou", True, type=bool)
-        print(f"🔍 MiniBar startup setting: {startup_setting}")
-        
-        if startup_setting:
-            print("🚀 Showing MiniBar...")
-            self.show()
-            self.raise_()
-            self.activateWindow()
-            print("🚀 MiniBar auto-started with Houdini")
-            print(f"📍 MiniBar visible: {self.isVisible()}")
-            print(f"📍 MiniBar geometry: {self.geometry()}")
-            print(f"📍 MiniBar parent: {self.parent()}")
-            print(f"📍 MiniBar window flags: {self.windowFlags()}")
-        else:
-            self.hide()
-            print("🚀 MiniBar startup disabled - use menu to show")
+        # Auto-start MiniBar (always enabled)
+        print("🚀 Showing MiniBar...")
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        print("🚀 MiniBar auto-started with Houdini")
+        print(f"📍 MiniBar visible: {self.isVisible()}")
+        print(f"📍 MiniBar geometry: {self.geometry()}")
+        print(f"📍 MiniBar parent: {self.parent()}")
+        print(f"📍 MiniBar window flags: {self.windowFlags()}")
 
     # --- a subset of methods ported from original for brevity ---
     def _shot_display_clicked(self, event):
@@ -233,15 +226,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         
         menu.addSeparator()
         
-        # Startup option
-        startup_enabled = self.s.value("minibar_startup_with_hou", True, type=bool)
-        if startup_enabled:
-            startup_action = menu.addAction("🚀 ✓ Startup with Houdini")
-        else:
-            startup_action = menu.addAction("🚀 Startup with Houdini")
-        startup_action.triggered.connect(self._toggle_startup)
-        
-        menu.addSeparator()
+        # Remove startup toggle - always auto-start
         
         # Version info
         try:
@@ -296,24 +281,10 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             print(f"⚠️ Error closing MiniBar: {e}")
             self.hide()
     
-    def _toggle_startup(self):
-        """Toggle startup with Houdini option"""
-        current = self.s.value("minibar_startup_with_hou", True, type=bool)
-        new_value = not current
-        self.s.setValue("minibar_startup_with_hou", new_value)
-        self.s.sync()
-        
-        status = "enabled" if new_value else "disabled"
-        print(f"🚀 MiniBar startup with Houdini {status}")
-        
-        # Show confirmation
-        hou.ui.displayMessage(
-            f"MiniBar startup with Houdini {status}.\n\nRestart Houdini to apply changes.",
-            severity=hou.severityType.Message
-        )
+    # Removed _toggle_startup - always auto-start
     
     def show_minibar(self):
-        """Show MiniBar (used when startup is disabled)"""
+        """Show MiniBar manually"""
         self.show()
         self.raise_()
         self.activateWindow()

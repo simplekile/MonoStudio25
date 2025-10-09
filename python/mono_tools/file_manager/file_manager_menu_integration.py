@@ -30,14 +30,6 @@ def add_file_manager_to_menu():
             file_menu.addAction("🚀 Show MiniBar", show_minibar_manually)
             file_menu.addAction("❌ Hide MiniBar", hide_minibar_manually)
             
-            # Startup toggle
-            file_menu.addSeparator()
-            startup_enabled = hou.userPref("minibar_startup_with_hou", True)
-            if startup_enabled:
-                file_menu.addAction("🚀 ✓ Startup with Houdini", toggle_startup)
-            else:
-                file_menu.addAction("🚀 Startup with Houdini", toggle_startup)
-            
             return True
         return False
         
@@ -65,20 +57,7 @@ def hide_minibar_manually():
     except Exception as e:
         print(f"⚠️ Error hiding MiniBar: {e}")
 
-def toggle_startup():
-    """Toggle startup with Houdini"""
-    try:
-        current = hou.userPref("minibar_startup_with_hou", True)
-        new_value = not current
-        hou.setUserPref("minibar_startup_with_hou", new_value)
-        
-        status = "enabled" if new_value else "disabled"
-        hou.ui.displayMessage(
-            f"MiniBar startup with Houdini {status}.\n\nRestart Houdini to apply changes.",
-            severity=hou.severityType.Message
-        )
-    except Exception as e:
-        print(f"⚠️ Error toggling startup: {e}")
+# Removed toggle_startup - always auto-start
 
 def add_file_manager_to_shelf():
     """Thêm File Manager vào Houdini shelf"""

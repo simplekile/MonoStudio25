@@ -93,6 +93,8 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         # Load scale setting
         self._load_scale_setting()
         
+        # Note: MiniBar always auto-starts (no setting needed)
+        
         # Auto-scan if root is set
         if self.root_le.text().strip():
             QtCore.QTimer.singleShot(100, self._scan_project)

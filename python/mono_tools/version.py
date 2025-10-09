@@ -120,7 +120,11 @@ def get_cached_version_info():
 def get_version_string():
     """Lấy version string để hiển thị"""
     info = get_cached_version_info()
-    return f"v{info['version']} ({info['branch']})"
+    version = info['version']
+    # Remove 'v' prefix if it already exists
+    if version.startswith('v'):
+        version = version[1:]
+    return f"v{version} ({info['branch']})"
 
 def get_full_version_string():
     """Lấy full version string"""
@@ -130,3 +134,10 @@ Branch: {info['branch']}
 Commit: {info['commit_date']}
 Python: {info['python_version']}
 Build: {info['build_date']}"""
+
+# Test function
+if __name__ == "__main__":
+    print("Testing version system...")
+    print(f"Version: {get_version_string()}")
+    print(f"Full info:")
+    print(get_full_version_string())
