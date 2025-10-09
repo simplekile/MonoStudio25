@@ -167,6 +167,216 @@ def collect_files(base_dir, depth=1):
         return results
     return results
 
+def collect_asset_files(base_dir, asset_type=None, department=None, asset_name=None):
+    """
+    Collect asset files from 01_assets structure
+    Args:
+        base_dir: Project root directory
+        asset_type: Asset type filter (_characters, _environments, _graphic, etc.)
+        department: Department filter (01_modeling, 02_rigging, etc.)
+        asset_name: Asset name filter (char_Gefula, etc.)
+    Returns:
+        List of (filepath, asset_name, department_name) tuples
+    """
+    print(f"🔍 collect_asset_files called with:")
+    print(f"  base_dir: {base_dir}")
+    print(f"  asset_type: {asset_type}")
+    print(f"  department: {department}")
+    print(f"  asset_name: {asset_name}")
+    print(f"  HOUDINI_EXTS: {HOUDINI_EXTS}")
+    
+    if not os.path.isdir(base_dir):
+        print(f"❌ Base directory does not exist: {base_dir}")
+        return []
+    
+    assets_dir = os.path.join(base_dir, "01_assets")
+    print(f"🔍 Looking for assets directory: {assets_dir}")
+    if not os.path.isdir(assets_dir):
+        print(f"❌ Assets directory does not exist: {assets_dir}")
+        return []
+    
+    print(f"✅ Assets directory found: {assets_dir}")
+    results = []
+    
+    try:
+        # Scan asset types
+        print(f"🔍 Scanning asset types in: {assets_dir}")
+        type_entries = list(os.scandir(assets_dir))
+        print(f"  Found {len(type_entries)} entries in assets directory")
+        
+        for type_entry in type_entries:
+            print(f"  Checking entry: {type_entry.name} (is_dir: {type_entry.is_dir()})")
+            if not type_entry.is_dir() or type_entry.name.startswith('.'):
+                print(f"    Skipping (not dir or hidden): {type_entry.name}")
+                continue
+                
+            # Filter by asset type if specified
+            if asset_type and type_entry.name != asset_type:
+                print(f"    Skipping (asset type filter): {type_entry.name} != {asset_type}")
+                continue
+                
+            print(f"    ✅ Processing asset type: {type_entry.name}")
+                
+            # Scan assets within this type
+            asset_entries = list(os.scandir(type_entry.path))
+            print(f"    Found {len(asset_entries)} asset entries in {type_entry.name}")
+            
+            for asset_entry in asset_entries:
+                print(f"      Checking asset: {asset_entry.name} (is_dir: {asset_entry.is_dir()})")
+                if not asset_entry.is_dir() or asset_entry.name.startswith('.'):
+                    print(f"        Skipping (not dir or hidden): {asset_entry.name}")
+                    continue
+                    
+                current_asset_name = asset_entry.name
+                print(f"        ✅ Processing asset: {current_asset_name}")
+                
+                # Filter by asset name if specified
+                if asset_name and current_asset_name != asset_name:
+                    print(f"        Skipping (asset name filter): {current_asset_name} != {asset_name}")
+                    continue
+                
+                # Scan departments within this asset
+                dept_entries = list(os.scandir(asset_entry.path))
+                print(f"        Found {len(dept_entries)} department entries in {current_asset_name}")
+                
+                for dept_entry in dept_entries:
+                    print(f"          Checking department: {dept_entry.name} (is_dir: {dept_entry.is_dir()})")
+                    if not dept_entry.is_dir() or dept_entry.name.startswith('.'):
+                        print(f"            Skipping (not dir or hidden): {dept_entry.name}")
+                        continue
+                        
+                    # Filter by department if specified
+                    if department and dept_entry.name != department:
+                        print(f"            Skipping (department filter): {dept_entry.name} != {department}")
+                        continue
+                        
+                    dept_name = dept_entry.name
+                    print(f"            ✅ Processing department: {dept_name}")
+                    
+                    # Scan files in this department
+                    file_entries = list(os.scandir(dept_entry.path))
+                    print(f"            Found {len(file_entries)} files in {dept_name}")
+                    
+                    for file_entry in file_entries:
+                        print(f"              Checking file: {file_entry.name} (is_file: {file_entry.is_file()})")
+                        if (file_entry.is_file() and 
+                            os.path.splitext(file_entry.name)[1].lower() in HOUDINI_EXTS):
+                            print(f"                ✅ Found Houdini file: {file_entry.name}")
+                            results.append((file_entry.path, current_asset_name, dept_name))
+                        else:
+                            ext = os.path.splitext(file_entry.name)[1].lower()
+                            print(f"                Skipping (not Houdini file): {file_entry.name} (ext: {ext})")
+                            
+    except Exception as e:
+        print(f"⚠️ Error collecting asset files: {e}")
+        
+    print(f"🎯 Final result: Found {len(results)} asset files")
+    for i, (filepath, asset_name, dept_name) in enumerate(results):
+        print(f"  {i+1}. {os.path.basename(filepath)} (asset: {asset_name}, dept: {dept_name})")
+        
+    return results
+
+def list_asset_types(base_dir):
+    """List available asset types in 01_assets directory"""
+    if not os.path.isdir(base_dir):
+        return []
+    
+    assets_dir = os.path.join(base_dir, "01_assets")
+    if not os.path.isdir(assets_dir):
+        return []
+    
+    types = []
+    try:
+        for entry in os.scandir(assets_dir):
+            if entry.is_dir() and not entry.name.startswith('.'):
+                types.append(entry.name)
+        types.sort()
+    except Exception as e:
+        print(f"⚠️ Error listing asset types: {e}")
+    
+    return types
+
+def list_asset_names(base_dir, asset_type):
+    """List available asset names for a specific asset type"""
+    if not base_dir or not asset_type:
+        return []
+    
+    type_dir = os.path.join(base_dir, "01_assets", asset_type)
+    if not os.path.isdir(type_dir):
+        return []
+    
+    assets = []
+    try:
+        for entry in os.scandir(type_dir):
+            if entry.is_dir() and not entry.name.startswith('.'):
+                assets.append(entry.name)
+        assets.sort()
+    except Exception as e:
+        print(f"⚠️ Error listing asset names: {e}")
+    
+    return assets
+
+def list_departments(base_dir, asset_type, asset_name):
+    """List available departments for a specific asset"""
+    if not base_dir or not asset_type or not asset_name:
+        return []
+    
+    asset_dir = os.path.join(base_dir, "01_assets", asset_type, asset_name)
+    if not os.path.isdir(asset_dir):
+        return []
+    
+    departments = []
+    try:
+        for entry in os.scandir(asset_dir):
+            if entry.is_dir() and not entry.name.startswith('.'):
+                departments.append(entry.name)
+        departments.sort()
+    except Exception as e:
+        print(f"⚠️ Error listing departments: {e}")
+    
+    return departments
+
+def infer_asset_name(full_path):
+    """Extract asset name from file path"""
+    try:
+        parts = os.path.normpath(full_path).split(os.sep)
+        
+        # Look for 01_assets in path
+        if "01_assets" in parts:
+            assets_idx = parts.index("01_assets")
+            if len(parts) > assets_idx + 2:  # 01_assets/<type>/<asset>
+                return parts[assets_idx + 2]
+        
+        # Fallback: use filename
+        filename = os.path.basename(full_path)
+        name, ext = os.path.splitext(filename)
+        return name
+        
+    except Exception as e:
+        print(f"⚠️ Error inferring asset name: {e}")
+        return "Unknown"
+
+def infer_department(full_path):
+    """Extract department from file path"""
+    try:
+        parts = os.path.normpath(full_path).split(os.sep)
+        
+        # Look for department pattern (01_modeling, 02_rigging, etc.)
+        for part in parts:
+            if re.match(r'\d{2}_\w+', part):
+                return part
+        
+        # Fallback: use parent directory name
+        parent_dir = os.path.basename(os.path.dirname(full_path))
+        if parent_dir and parent_dir != "01_assets":
+            return parent_dir
+            
+        return "Unknown"
+        
+    except Exception as e:
+        print(f"⚠️ Error inferring department: {e}")
+        return "Unknown"
+
 # ---------- Project root & tabs helpers ----------
 DEFAULT_ROOT = r"D:\\Dropbox\\Job"
 
@@ -207,6 +417,405 @@ def save_tabs_settings(settings: 'QtCore.QSettings', tabs_conf):
         settings.sync()
     except Exception as e:
         print(f"⚠️ save_tabs_settings error: {e}")
+
+
+def parse_asset_info_from_filename(filename):
+    """
+    Parse asset type, asset name, department from filename
+    Examples:
+    - char_Gefula_modeling_v001.hip -> (_characters, char_Gefula, 01_modeling)
+    - env_Forest_lighting_v002.hip -> (_environments, env_Forest, 03_lighting)
+    - prop_Chair_surfacing_v003.hip -> (_props, prop_Chair, 03_surfacing)
+    """
+    try:
+        # Remove extension
+        name_no_ext = os.path.splitext(filename)[0]
+        
+        # Common patterns for asset types
+        asset_type_patterns = {
+            r'^char_': '_characters',
+            r'^env_': '_environments', 
+            r'^prop_': '_props',
+            r'^veh_': '_vehicles',
+            r'^fx_': '_effects',
+            r'^graphic_': '_graphic'
+        }
+        
+        # Common patterns for departments
+        dept_patterns = {
+            r'modeling': '01_modeling',
+            r'rigging': '02_rigging', 
+            r'surfacing': '03_surfacing',
+            r'lookdev': '04_lookdev',
+            r'groom': '05_groom',
+            r'anim': '06_anim',
+            r'cloth': '06_cloth',
+            r'lighting': '03_lighting',
+            r'comp': '04_comp'
+        }
+        
+        # Extract asset type
+        asset_type = None
+        for pattern, type_name in asset_type_patterns.items():
+            if re.search(pattern, name_no_ext, re.IGNORECASE):
+                asset_type = type_name
+                break
+        
+        # Extract department
+        department = None
+        for pattern, dept_name in dept_patterns.items():
+            if re.search(pattern, name_no_ext, re.IGNORECASE):
+                department = dept_name
+                break
+        
+        # Extract asset name (everything before department)
+        asset_name = None
+        if department:
+            # Remove version and department info to get asset name
+            clean_name = re.sub(r'_v\d+$', '', name_no_ext)  # Remove version
+            clean_name = re.sub(r'_(modeling|rigging|surfacing|lookdev|groom|anim|cloth|lighting|comp)$', '', clean_name, flags=re.IGNORECASE)
+            asset_name = clean_name
+        else:
+            # If no department found, use the whole name (minus version)
+            asset_name = re.sub(r'_v\d+$', '', name_no_ext)
+        
+        return asset_type, asset_name, department
+        
+    except Exception as e:
+        print(f"⚠️ Error parsing asset info from filename '{filename}': {e}")
+        return None, None, None
+
+
+def collect_asset_files_filename(base_dir, asset_type=None, department=None, asset_name=None):
+    """
+    Collect asset files by scanning all .hip files and parsing filenames
+    This is a fallback method when subfolder structure is not available
+    """
+    print(f"🔍 collect_asset_files_filename called with:")
+    print(f"  base_dir: {base_dir}")
+    print(f"  asset_type: {asset_type}")
+    print(f"  department: {department}")
+    print(f"  asset_name: {asset_name}")
+    
+    if not os.path.isdir(base_dir):
+        print(f"❌ Base directory does not exist: {base_dir}")
+        return []
+    
+    results = []
+    
+    try:
+        # Scan for all .hip files recursively
+        for root, dirs, files in os.walk(base_dir):
+            for file in files:
+                if os.path.splitext(file)[1].lower() in HOUDINI_EXTS:
+                    filepath = os.path.join(root, file)
+                    
+                    # Parse asset info from filename
+                    parsed_type, parsed_asset, parsed_dept = parse_asset_info_from_filename(file)
+                    
+                    if not parsed_asset:  # Skip if we can't parse asset name
+                        continue
+                    
+                    # Apply filters
+                    if asset_type and parsed_type != asset_type:
+                        continue
+                    if department and parsed_dept != department:
+                        continue
+                    if asset_name and parsed_asset != asset_name:
+                        continue
+                    
+                    results.append((filepath, parsed_asset, parsed_dept or "unknown"))
+                    print(f"  ✅ Found: {file} -> asset: {parsed_asset}, dept: {parsed_dept or 'unknown'}")
+    
+    except Exception as e:
+        print(f"⚠️ Error in filename-based collection: {e}")
+    
+    print(f"🎯 Filename-based result: Found {len(results)} asset files")
+    return results
+
+
+def collect_asset_files_hybrid(base_dir, asset_type=None, department=None, asset_name=None):
+    """
+    Hybrid approach: try subfolder-based search first, then filename-based search
+    """
+    print(f"🔄 Starting hybrid asset collection")
+    
+    # First try subfolder-based search
+    print("1️⃣ Trying subfolder-based search...")
+    subfolder_results = collect_asset_files(base_dir, asset_type, department, asset_name)
+    
+    if subfolder_results:
+        print(f"✅ Subfolder-based search found {len(subfolder_results)} files")
+        return subfolder_results
+    
+    # If no results, try filename-based search
+    print("2️⃣ No subfolder results, trying filename-based search...")
+    filename_results = collect_asset_files_filename(base_dir, asset_type, department, asset_name)
+    
+    if filename_results:
+        print(f"✅ Filename-based search found {len(filename_results)} files")
+    else:
+        print("❌ No files found with either method")
+    
+    return filename_results
+
+# ================ NEW SCAN FUNCTIONS FOR SETTINGS DIALOG ================
+
+IGNORE_FOLDERS = {'backup', 'Vers', 'old', '.git', '__pycache__', '_thumbnail'}
+
+def scan_project_types(base_dir):
+    """
+    Scan project directory for available types
+    Returns: List of (type_name, type_path, is_assets) tuples
+    """
+    if not os.path.isdir(base_dir):
+        return []
+    
+    types = []
+    
+    try:
+        # Scan 01_assets/ for _* folders
+        assets_dir = os.path.join(base_dir, "01_assets")
+        if os.path.isdir(assets_dir):
+            for entry in os.scandir(assets_dir):
+                if (entry.is_dir() and 
+                    not entry.name.startswith('.') and 
+                    entry.name not in IGNORE_FOLDERS and
+                    entry.name.startswith('_')):
+                    types.append((entry.name, entry.path, True))  # (name, path, is_assets)
+        
+        # Add 02_shots/ as a single type
+        shots_dir = os.path.join(base_dir, "02_shots")
+        if os.path.isdir(shots_dir):
+            types.append(("Shots", shots_dir, False))  # (name, path, is_assets)
+            
+    except Exception as e:
+        print(f"⚠️ Error scanning project types: {e}")
+    
+    # Sort: assets first (alphabetically), then shots
+    types.sort(key=lambda x: (not x[2], x[0]))  # is_assets=False comes first for shots
+    return types
+
+def scan_departments_for_type(base_dir, type_name, is_assets=True):
+    """
+    Scan departments for a specific type
+    Args:
+        base_dir: Project root directory
+        type_name: Type name (e.g., "_characters", "Shots")
+        is_assets: Whether this is an assets type or shots type
+    Returns: List of department names
+    """
+    if not base_dir or not type_name:
+        return []
+    
+    departments = set()
+    
+    try:
+        if is_assets:
+            # For assets: scan all asset_name/department combinations
+            type_dir = os.path.join(base_dir, "01_assets", type_name)
+            if os.path.isdir(type_dir):
+                for asset_entry in os.scandir(type_dir):
+                    if (asset_entry.is_dir() and 
+                        not asset_entry.name.startswith('.') and 
+                        asset_entry.name not in IGNORE_FOLDERS):
+                        # Scan departments within this asset
+                        for dept_entry in os.scandir(asset_entry.path):
+                            if (dept_entry.is_dir() and 
+                                not dept_entry.name.startswith('.') and 
+                                dept_entry.name not in IGNORE_FOLDERS):
+                                departments.add(dept_entry.name)
+        else:
+            # For shots: scan 02_shots/ for department folders
+            shots_dir = os.path.join(base_dir, "02_shots")
+            if os.path.isdir(shots_dir):
+                for entry in os.scandir(shots_dir):
+                    if (entry.is_dir() and 
+                        not entry.name.startswith('.') and 
+                        entry.name not in IGNORE_FOLDERS):
+                        departments.add(entry.name)
+                        
+    except Exception as e:
+        print(f"⚠️ Error scanning departments for type '{type_name}': {e}")
+    
+    # Sort departments
+    return sorted(list(departments))
+
+def collect_files_with_filters(base_dir, type_name, department=None):
+    """
+    Main scan logic for files with filters (working .hip files only)
+    Args:
+        base_dir: Project root directory
+        type_name: Type name (e.g., "_characters", "Shots")
+        department: Department filter (optional)
+    Returns: List of (filepath, asset_name, department_name, file_info) tuples
+    """
+    if not base_dir or not type_name:
+        return []
+    
+    results = []
+    is_assets = type_name != "Shots"
+    file_extensions = HOUDINI_EXTS  # Always scan .hip files only
+    
+    try:
+        if is_assets:
+            # Assets: scan type/asset_name/department/files
+            type_dir = os.path.join(base_dir, "01_assets", type_name)
+            if not os.path.isdir(type_dir):
+                return []
+            
+            for asset_entry in os.scandir(type_dir):
+                if (asset_entry.is_dir() and 
+                    not asset_entry.name.startswith('.') and 
+                    asset_entry.name not in IGNORE_FOLDERS):
+                    
+                    asset_name = asset_entry.name
+                    
+                    # Scan departments within this asset
+                    for dept_entry in os.scandir(asset_entry.path):
+                        if (dept_entry.is_dir() and 
+                            not dept_entry.name.startswith('.') and 
+                            dept_entry.name not in IGNORE_FOLDERS):
+                            
+                            dept_name = dept_entry.name
+                            
+                            # Apply department filter
+                            if department and dept_name != department:
+                                continue
+                            
+                            # Scan working files only (not in _publish/)
+                            scan_path = dept_entry.path
+                            
+                            if not os.path.isdir(scan_path):
+                                continue
+                            
+                            # Scan files
+                            for file_entry in os.scandir(scan_path):
+                                if (file_entry.is_file() and 
+                                    os.path.splitext(file_entry.name)[1].lower() in file_extensions):
+                                    
+                                    file_info = {
+                                        'filename': file_entry.name,
+                                        'version': parse_ver(file_entry.name),
+                                        'size': file_entry.stat().st_size,
+                                        'modified': file_entry.stat().st_mtime
+                                    }
+                                    
+                                    results.append((file_entry.path, asset_name, dept_name, file_info))
+        else:
+            # Shots: scan department/files
+            shots_dir = os.path.join(base_dir, "02_shots")
+            if not os.path.isdir(shots_dir):
+                return []
+            
+            for dept_entry in os.scandir(shots_dir):
+                if (dept_entry.is_dir() and 
+                    not dept_entry.name.startswith('.') and 
+                    dept_entry.name not in IGNORE_FOLDERS):
+                    
+                    dept_name = dept_entry.name
+                    
+                    # Apply department filter
+                    if department and dept_name != department:
+                        continue
+                    
+                    # Scan working files only (not in _publish/)
+                    scan_path = dept_entry.path
+                    
+                    if not os.path.isdir(scan_path):
+                        continue
+                    
+                    # Scan files
+                    for file_entry in os.scandir(scan_path):
+                        if (file_entry.is_file() and 
+                            os.path.splitext(file_entry.name)[1].lower() in file_extensions):
+                            
+                            # Extract shot name from filename
+                            shot_name = infer_shot(file_entry.path)
+                            
+                            file_info = {
+                                'filename': file_entry.name,
+                                'version': parse_ver(file_entry.name),
+                                'size': file_entry.stat().st_size,
+                                'modified': file_entry.stat().st_mtime
+                            }
+                            
+                            results.append((file_entry.path, shot_name, dept_name, file_info))
+                            
+    except Exception as e:
+        print(f"⚠️ Error collecting files with filters: {e}")
+    
+    return results
+
+def find_thumbnail(file_path, department_path):
+    """
+    Search for thumbnail in _thumbnail/ folder
+    Args:
+        file_path: Full path to the file
+        department_path: Path to the department folder
+    Returns: Path to thumbnail file or None
+    """
+    if not file_path or not department_path:
+        return None
+    
+    try:
+        # Get filename without extension
+        filename = os.path.basename(file_path)
+        name_no_ext = os.path.splitext(filename)[0]
+        
+        # Look for _thumbnail folder in department
+        thumbnail_dir = os.path.join(department_path, "_thumbnail")
+        if not os.path.isdir(thumbnail_dir):
+            return None
+        
+        # Search for thumbnail with priority order
+        extensions = ['.jpg', '.png', '.jpeg', '.bmp']
+        
+        # First try: exact match with version
+        for ext in extensions:
+            thumb_path = os.path.join(thumbnail_dir, f"{name_no_ext}{ext}")
+            if os.path.isfile(thumb_path):
+                return thumb_path
+        
+        # Second try: match without version
+        name_no_version = re.sub(r'_v\d+$', '', name_no_ext)
+        for ext in extensions:
+            thumb_path = os.path.join(thumbnail_dir, f"{name_no_version}{ext}")
+            if os.path.isfile(thumb_path):
+                return thumb_path
+        
+        # Third try: match just the base name (before any separators)
+        base_name = re.split(r'[_-]', name_no_version)[0]
+        for ext in extensions:
+            thumb_path = os.path.join(thumbnail_dir, f"{base_name}{ext}")
+            if os.path.isfile(thumb_path):
+                return thumb_path
+                
+    except Exception as e:
+        print(f"⚠️ Error finding thumbnail for {file_path}: {e}")
+    
+    return None
+
+def get_supported_file_extensions():
+    """
+    Get supported file extensions for File Manager (working files only)
+    Returns: Set of Houdini file extensions
+    """
+    return HOUDINI_EXTS
+
+def get_all_file_extensions():
+    """
+    Get all supported file extensions for Asset Manager
+    Returns: Set of all file extensions
+    Note: This function is for future Asset Manager tool
+    """
+    return {
+        '.hip', '.hiplc', '.hipnc',  # Houdini files
+        '.fbx', '.usd', '.abc', '.obj', '.ma', '.mb',  # 3D files
+        '.jpg', '.png', '.jpeg', '.bmp', '.tga', '.exr',  # Images
+        '.mp4', '.mov', '.avi', '.mkv',  # Videos
+        '.txt', '.json', '.xml', '.md'  # Text files
+    }
 
 
 

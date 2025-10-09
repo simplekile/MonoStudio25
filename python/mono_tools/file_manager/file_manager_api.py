@@ -23,21 +23,57 @@ def show_mono_file_manager():
 
 def show_mono_minibar():
     global _active_minibar
+    print("🔍 show_mono_minibar() called")
+    
+    # Debug call stack
+    import traceback
+    print("🔍 Call stack:")
+    for line in traceback.format_stack():
+        print(f"  {line.strip()}")
+    
     try:
-        for widget in hou.qt.mainWindow().findChildren(QtCore.QObject, "MonoMiniBar"):
+        print("🔍 Checking for existing minibar...")
+        existing_minibars = hou.qt.mainWindow().findChildren(QtCore.QObject, "MonoMiniBar")
+        print(f"🔍 Found {len(existing_minibars)} existing minibars")
+        
+        for i, widget in enumerate(existing_minibars):
+            print(f"🔍 Minibar {i}: {widget}, visible: {widget.isVisible() if hasattr(widget, 'isVisible') else 'N/A'}")
             if hasattr(widget, 'close') and widget.isVisible():
                 print(f"🗑️ Closing existing minibar at {widget.pos()}")
                 widget.close(); widget.deleteLater()
-    except: pass
+    except Exception as e:
+        print(f"🔍 Error checking existing minibar: {e}")
+    
     _active_minibar = None
     print("🔄 Creating new minibar...")
-    mb=MonoFileMiniBar(manager_factory=_make_manager, parent=hou.qt.mainWindow())
-    _active_minibar=mb
-    d=_make_manager()
-    base=os.path.join(d.root_le.text().strip(), SUBPATH) if d.root_le.text().strip() else ""
-    if base and os.path.isdir(base):
-        mb.populate(collect_files(base, depth=1))
-    return mb
+    
+    try:
+        mb=MonoFileMiniBar(manager_factory=_make_manager, parent=hou.qt.mainWindow())
+        print(f"🔍 MiniBar created: {mb}")
+        _active_minibar=mb
+        
+        print("🔍 Getting manager...")
+        d=_make_manager()
+        print(f"🔍 Manager: {d}")
+        
+        print("🔍 Checking project root...")
+        base=os.path.join(d.root_le.text().strip(), SUBPATH) if d.root_le.text().strip() else ""
+        print(f"🔍 Project base: {base}")
+        
+        if base and os.path.isdir(base):
+            print("🔍 Populating minibar with files...")
+            mb.populate(collect_files(base, depth=1))
+        else:
+            print("🔍 No valid project root - minibar will be empty")
+        
+        print(f"🔍 Returning minibar: {mb}")
+        return mb
+        
+    except Exception as e:
+        print(f"⚠️ Error creating minibar: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 class FileManagerWrapper:
     def __init__(self):

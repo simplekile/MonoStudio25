@@ -49,21 +49,4 @@ toolbar MonoStudio
         }
     }
     
-    tool All_Tools
-    {
-        label "All Tools"
-        icon "MISC_all"
-        script
-        {
-            import hou
-            from mono_tools import show_mono_file_manager, show_mono_minibar, show_material_loader, show_texture_search_replace
-            
-            show_mono_file_manager()
-            show_mono_minibar()
-            show_material_loader()
-            show_texture_search_replace()
-            
-            print("All Mono Studio tools opened!")
-        }
-    }
 }
