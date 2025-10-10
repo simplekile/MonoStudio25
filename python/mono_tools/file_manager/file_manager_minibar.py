@@ -581,12 +581,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             # Fallback position
             self.move(20, 80)
 
-    def _snap_top_right(self):
-        """Snap to default position (same as _get_default_position)"""
-        # Use same logic as default position for consistency
-        default_x, default_y = self._get_default_position()
-        self.move(default_x, default_y)
-        self._save_relative_position()
 
     def _update_lock_visual_feedback(self):
         if self._locked:
