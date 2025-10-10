@@ -228,7 +228,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             version_action.setToolTip(get_full_version_string())
             version_action.setEnabled(False)  # Disabled, just for display
         except Exception as e:
-            debug_print(f"⚠️ Error loading version: {e}")
+        debug_print(f"⚠️ Error loading version: {e}")
             version_action = menu.addAction("ℹ️ v2.2.0")
             version_action.setEnabled(False)
         
@@ -265,10 +265,10 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             # Hide MiniBar
             self.hide()
-            debug_print("❌ MiniBar closed")
+        debug_print("❌ MiniBar closed")
             
         except Exception as e:
-            debug_print(f"⚠️ Error closing MiniBar: {e}")
+        debug_print(f"⚠️ Error closing MiniBar: {e}")
             self.hide()
     
     # Removed _toggle_startup - always auto-start
@@ -500,7 +500,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 self.s.setValue("minibar_rel_x", rel_x); self.s.setValue("minibar_rel_y", rel_y)
                 self.s.setValue("minibar_abs_x", my_pos.x()); self.s.setValue("minibar_abs_y", my_pos.y()); self.s.sync()
         except Exception as e:
-            if os.environ.get('MONO_DEBUG'): debug_print(f"⚠️ Failed to save minibar position: {e}")
+            if os.environ.get('MONO_DEBUG'): print(f"⚠️ Failed to save minibar position: {e}")
 
     def _update_position_relative_to_main_window(self):
         try:
@@ -532,7 +532,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                         self._last_stable_pos = QtCore.QPoint(new_x, new_y); self._position_stable_count = 0
                     if self._position_stable_count < 3: self.move(new_x, new_y)
         except Exception as e:
-            if os.environ.get('MONO_DEBUG'): debug_print(f"⚠️ Error updating minibar position: {e}")
+            if os.environ.get('MONO_DEBUG'): print(f"⚠️ Error updating minibar position: {e}")
         finally:
             self._updating_position = False
 
@@ -681,7 +681,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             current_file = hou.hipFile.name()
             if current_file and current_file != "untitled.hip":
                 if os.path.exists(current_file):
-                    open_in_explorer(current_file); debug_print(f"📁 Opened location: {os.path.dirname(current_file)}")
+                    open_in_explorer(current_file); print(f"📁 Opened location: {os.path.dirname(current_file)}")
                 else:
                     hou.ui.displayMessage(f"File not found:\n{current_file}", severity=hou.severityType.Warning)
             else:
@@ -698,14 +698,14 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             if not render_folder:
                 hou.ui.displayMessage("Could not determine render folder path", severity=hou.severityType.Warning); return
             if os.path.exists(render_folder):
-                open_in_explorer(render_folder); debug_print(f"🎬 Opened render folder: {render_folder}")
+                open_in_explorer(render_folder); print(f"🎬 Opened render folder: {render_folder}")
             else:
                 result = hou.ui.displayMessage(
                     f"Render folder does not exist:\n{render_folder}\n\nWould you like to create it?",
                     buttons=("Create & Open", "Cancel"), severity=hou.severityType.Message, default_choice=0, close_choice=1, title="Render Folder Not Found"
                 )
                 if result == 0:
-                    try: os.makedirs(render_folder, exist_ok=True); open_in_explorer(render_folder); debug_print(f"🎬 Created and opened render folder: {render_folder}")
+                    try: os.makedirs(render_folder, exist_ok=True); open_in_explorer(render_folder); print(f"🎬 Created and opened render folder: {render_folder}")
                     except Exception as create_error:
                         hou.ui.displayMessage(f"Failed to create render folder:\n{str(create_error)}", severity=hou.severityType.Error)
         except Exception as e:
@@ -729,9 +729,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             result = hou.ui.displayMessage("This will restart Houdini. Any unsaved changes will be lost.\n\nContinue?", buttons=("Restart", "Cancel"), severity=hou.severityType.ImportantMessage)
             if result != 0: return
             try:
-                debug_print("🔄 Method 1: Trying hou.exit(restart=True)..."); hou.exit(restart=True)
+        debug_print("🔄 Method 1: Trying hou.exit(restart=True)..."); hou.exit(restart=True)
             except Exception as exit_error:
-                debug_print(f"⚠️ hou.exit(restart=True) failed: {exit_error}")
+        debug_print(f"⚠️ hou.exit(restart=True) failed: {exit_error}")
                 try:
                     import sys
                     houdini_exe = sys.executable
@@ -747,11 +747,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                         if current_scene and os.path.exists(current_scene): cmd.append(current_scene)
                         process = subprocess.Popen(cmd, shell=False, cwd=os.path.dirname(houdini_exe))
                         from mono_tools.qt import QtCore as _QtCore
-                        def delayed_exit(): debug_print("👋 Closing current instance..."); hou.exit()
+                        def delayed_exit(): print("👋 Closing current instance..."); hou.exit()
                         _QtCore.QTimer.singleShot(1500, delayed_exit)
                         hou.ui.displayMessage("🔃 Houdini restart initiated!\n\n✅ New instance starting...\n👋 Current instance will close in 1.5 seconds", severity=hou.severityType.Message, default_choice=0, close_choice=0)
                 except Exception as popen_error:
-                    debug_print(f"❌ Failed to start subprocess: {popen_error}")
+        debug_print(f"❌ Failed to start subprocess: {popen_error}")
         except Exception as e:
             hou.ui.displayMessage(f"Failed to restart Houdini:\n{str(e)}", severity=hou.severityType.Error)
 
@@ -807,12 +807,12 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         if hasattr(self.manager, 'root_le') and self.manager.root_le.text().strip():
             root = self.manager.root_le.text().strip()
             self.s.setValue("project_root", root)
-            debug_print(f"💾 Saved project root: {root}")
+        debug_print(f"💾 Saved project root: {root}")
         
         if hasattr(self.manager, 'project_cb') and self.manager.project_cb.currentText().strip():
             project = self.manager.project_cb.currentText().strip()
             self.s.setValue("current_project", project)
-            debug_print(f"💾 Saved current project: {project}")
+        debug_print(f"💾 Saved current project: {project}")
         
         if self.manager.root_le.text().strip():
             QtCore.QTimer.singleShot(100, self.manager.scan)
@@ -828,7 +828,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         
         # Handle empty state
         if not paths:
-            debug_print("No files found")
+        debug_print("No files found")
             self.shot_display.setText("No files")
             self.shot_display.setToolTip("No files found for current selection")
             return
@@ -839,9 +839,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         for i, p in enumerate(sorted_paths[:10]):  # Show first 10 files
             name = os.path.basename(p)
             ver = parse_ver(name)
-            debug_print(f"  {i+1}. {name} (v{ver or '—'})")
+        debug_print(f"  {i+1}. {name} (v{ver or '—'})")
         if len(sorted_paths) > 10:
-            debug_print(f"  ... and {len(sorted_paths) - 10} more files")
+        debug_print(f"  ... and {len(sorted_paths) - 10} more files")
             
         added_count = 0
         for p in sorted(paths):
@@ -907,7 +907,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     def _load_tabs_for_type(self, type_index):
         """Load available tabs based on type (0=Assets, 1=Shots)"""
         try:
-            debug_print(f"🔄 Loading tabs for type {type_index} ({'Assets' if type_index == 0 else 'Shots'})")
+        debug_print(f"🔄 Loading tabs for type {type_index} ({'Assets' if type_index == 0 else 'Shots'})")
             self.tab_cb.blockSignals(True)
             self.tab_cb.clear()
             
@@ -923,7 +923,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 for conf in assets_configs:
                     name = conf.get('name', 'Unknown')
                     self.tab_cb.addItem(name, conf)
-                debug_print(f"✅ Loaded {len(assets_configs)} asset tabs: {[c['name'] for c in assets_configs]}")
+        debug_print(f"✅ Loaded {len(assets_configs)} asset tabs: {[c['name'] for c in assets_configs]}")
             else:  # Shots
                 # Load shot tabs from hardcoded config
                 shots_configs = [
@@ -934,7 +934,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 for conf in shots_configs:
                     name = conf.get('name', 'lighting')
                     self.tab_cb.addItem(name, conf)
-                debug_print(f"✅ Loaded {len(shots_configs)} shot tabs: {[c['name'] for c in shots_configs]}")
+        debug_print(f"✅ Loaded {len(shots_configs)} shot tabs: {[c['name'] for c in shots_configs]}")
             
             # Restore last selected tab for this type
             saved_tab_key = f"minibar_tab_{type_index}"
@@ -943,31 +943,31 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 idx = self.tab_cb.findText(saved_tab)
                 if idx >= 0:
                     self.tab_cb.setCurrentIndex(idx)
-                    debug_print(f"✅ Restored tab: {saved_tab}")
+        debug_print(f"✅ Restored tab: {saved_tab}")
                 else:
                     self.tab_cb.setCurrentIndex(0)
-                    debug_print(f"⚠️ Saved tab '{saved_tab}' not found, using default")
+        debug_print(f"⚠️ Saved tab '{saved_tab}' not found, using default")
             else:
                 # Set default selection
                 self.tab_cb.setCurrentIndex(0)
-                debug_print(f"✅ Using default tab selection")
+        debug_print(f"✅ Using default tab selection")
             
             self.tab_cb.blockSignals(False)
             
             # Don't trigger refresh here - let the caller handle it
-            debug_print(f"✅ Tab dropdown now has {self.tab_cb.count()} items")
+        debug_print(f"✅ Tab dropdown now has {self.tab_cb.count()} items")
             
             # Don't trigger initial load here - let user interaction trigger it
                 
         except Exception as e:
-            debug_print(f"⚠️ Error loading tabs for type: {e}")
+        debug_print(f"⚠️ Error loading tabs for type: {e}")
 
 
     def _refresh_files_for_current_tab(self):
         """Refresh files based on current type and tab selection"""
         try:
             if not self.manager:
-                debug_print("⚠️ No manager available for file refresh")
+        debug_print("⚠️ No manager available for file refresh")
                 # Try to refresh without manager using saved settings
                 self._refresh_files_standalone()
                 return
@@ -976,25 +976,25 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             tab_config = self.tab_cb.itemData(self.tab_cb.currentIndex())
             
             if not tab_config:
-                debug_print("⚠️ No tab config available")
+        debug_print("⚠️ No tab config available")
                 return
             
             root = self.manager.root_le.text().strip()
             project = self.manager.project_cb.currentText().strip()
             
             if not root or not project:
-                debug_print(f"⚠️ Missing root or project: root='{root}', project='{project}'")
+        debug_print(f"⚠️ Missing root or project: root='{root}', project='{project}'")
                 return
             
-            debug_print(f"🔄 Refreshing files for type {type_idx} ({'Assets' if type_idx == 0 else 'Shots'})")
-            debug_print(f"📍 Root: {root}")
-            debug_print(f"📍 Project: {project}")
-            debug_print(f"📍 Tab: {tab_config.get('name', 'Unknown')}")
+        debug_print(f"🔄 Refreshing files for type {type_idx} ({'Assets' if type_idx == 0 else 'Shots'})")
+        debug_print(f"📍 Root: {root}")
+        debug_print(f"📍 Project: {project}")
+        debug_print(f"📍 Tab: {tab_config.get('name', 'Unknown')}")
             
             if type_idx == 0:  # Assets mode
                 # Get asset filtering from File Manager
                 base_dir = os.path.join(root, project)
-                debug_print(f"📍 Asset base dir: {base_dir}")
+        debug_print(f"📍 Asset base dir: {base_dir}")
                 
                 from .file_manager_helpers import collect_asset_files_hybrid
                 
@@ -1018,19 +1018,19 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                     if asset_name_text and asset_name_text != "All Assets":
                         asset_name = asset_name_text
                 
-                debug_print(f"📍 Asset filters: type='{asset_type}', department='{department}', asset_name='{asset_name}'")
+        debug_print(f"📍 Asset filters: type='{asset_type}', department='{department}', asset_name='{asset_name}'")
                 
                 # Collect asset files using hybrid approach
                 asset_files = collect_asset_files_hybrid(base_dir, asset_type, department, asset_name)
                 paths = [f[0] for f in asset_files]  # Extract file paths
                 
-                debug_print(f"📍 Found {len(asset_files)} asset files")
+        debug_print(f"📍 Found {len(asset_files)} asset files")
                 if asset_files:
-                    debug_print("Asset files details:")
+        debug_print("Asset files details:")
                     for i, (filepath, asset_name, dept_name) in enumerate(asset_files[:5]):
-                        debug_print(f"  {i+1}. {os.path.basename(filepath)} (asset: {asset_name}, dept: {dept_name})")
+        debug_print(f"  {i+1}. {os.path.basename(filepath)} (asset: {asset_name}, dept: {dept_name})")
                     if len(asset_files) > 5:
-                        debug_print(f"  ... and {len(asset_files) - 5} more asset files")
+        debug_print(f"  ... and {len(asset_files) - 5} more asset files")
                 
                 # Create asset names from file paths for proper display
                 asset_names = {}
@@ -1042,27 +1042,27 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             else:  # Shots mode
                 subpath = tab_config.get('subpath', '02_shots/03_lighting')
                 target_dir = os.path.join(root, project, subpath)
-                debug_print(f"📍 Shot target dir: {target_dir}")
+        debug_print(f"📍 Shot target dir: {target_dir}")
                 
                 if not os.path.isdir(target_dir):
-                    debug_print(f"⚠️ Target directory does not exist: {target_dir}")
+        debug_print(f"⚠️ Target directory does not exist: {target_dir}")
                     return
                 
                 from .file_manager_helpers import collect_files
                 depth = tab_config.get('depth', 1)
-                debug_print(f"📍 Scan depth: {depth}")
+        debug_print(f"📍 Scan depth: {depth}")
                 files = collect_files(target_dir, depth=depth)
-                debug_print(f"📍 Found {len(files)} shot files")
+        debug_print(f"📍 Found {len(files)} shot files")
                 if files:
-                    debug_print("Shot files details:")
+        debug_print("Shot files details:")
                     for i, filepath in enumerate(files[:5]):
-                        debug_print(f"  {i+1}. {os.path.basename(filepath)}")
+        debug_print(f"  {i+1}. {os.path.basename(filepath)}")
                     if len(files) > 5:
-                        debug_print(f"  ... and {len(files) - 5} more shot files")
+        debug_print(f"  ... and {len(files) - 5} more shot files")
                 self.populate(files)
             
         except Exception as e:
-            debug_print(f"⚠️ Error refreshing files: {e}")
+        debug_print(f"⚠️ Error refreshing files: {e}")
 
     def _refresh_files_standalone(self):
         """Refresh files without File Manager using saved settings"""
@@ -1073,14 +1073,14 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             project = self.s.value("current_project", "", type=str)
             
             if not root or not project:
-                debug_print(f"⚠️ Missing saved settings: root='{root}', project='{project}'")
+        debug_print(f"⚠️ Missing saved settings: root='{root}', project='{project}'")
                 self.shot_display.setText("No project configured")
                 self.shot_display.setToolTip("Click ⚡ to configure project")
                 return
             
             project_path = os.path.join(root, project)
             if not os.path.isdir(project_path):
-                debug_print(f"⚠️ Project directory not found: {project_path}")
+        debug_print(f"⚠️ Project directory not found: {project_path}")
                 self.shot_display.setText("Project not found")
                 self.shot_display.setToolTip("Click ⚡ to configure project")
                 return
@@ -1090,25 +1090,25 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             department = self.current_dept
             
             if not type_name:
-                debug_print("⚠️ No type selected")
+        debug_print("⚠️ No type selected")
                 self.shot_display.setText("Select type")
                 self.shot_display.setToolTip("Click 🏷️ button to select type")
                 return
             
             if not department:
-                debug_print("⚠️ No department selected")
+        debug_print("⚠️ No department selected")
                 self.shot_display.setText("Select department")
                 self.shot_display.setToolTip("Click 📁 button to select department")
                 return
             
-            debug_print(f"🔄 Standalone refresh: type='{type_name}', dept='{department}'")
+        debug_print(f"🔄 Standalone refresh: type='{type_name}', dept='{department}'")
             
             # Collect files using new scan functions (always .hip files only)
             from .file_manager_helpers import collect_files_with_filters
             files_data = collect_files_with_filters(project_path, type_name, department)
             
             if not files_data:
-                debug_print("⚠️ No files found")
+        debug_print("⚠️ No files found")
                 self.shot_display.setText("No files found")
                 self.shot_display.setToolTip("No files found for current selection")
                 return
@@ -1117,12 +1117,12 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             paths = [f[0] for f in files_data]
             asset_names = {f[0]: f[1] for f in files_data}  # filepath -> asset_name
             
-            debug_print(f"📍 Found {len(files_data)} files")
+        debug_print(f"📍 Found {len(files_data)} files")
             self.populate(paths, asset_names)
             
         except Exception as e:
-            if DEBUG:
-                debug_print(f"⚠️ Error in standalone refresh: {e}")
+            if os.environ.get('MONO_DEBUG'):
+        debug_print(f"⚠️ Error in standalone refresh: {e}")
             self.shot_display.setText("Error loading files")
             self.shot_display.setToolTip("Error loading files - check settings")
 
@@ -1165,18 +1165,18 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             self.dept_btn.setToolTip("No project configured")
             
         except Exception as e:
-            debug_print(f"⚠️ Error loading minibar settings: {e}")
+        debug_print(f"⚠️ Error loading minibar settings: {e}")
     
     def _apply_ui_scale(self):
         """Apply UI scale to MiniBar"""
         try:
             scale = self.s.value("minibar_ui_scale", 100, type=int)
-            debug_print(f"🔍 Loading UI scale setting: {scale}%")
+        debug_print(f"🔍 Loading UI scale setting: {scale}%")
             
             if scale != 100:
                 # Apply scale factor
                 scale_factor = scale / 100.0
-                debug_print(f"🔍 Applying scale factor: {scale_factor}")
+        debug_print(f"🔍 Applying scale factor: {scale_factor}")
                 
                 # Scale font sizes
                 font = self.font()
@@ -1184,12 +1184,12 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 new_font_size = int(base_size * scale_factor)
                 font.setPointSize(new_font_size)
                 self.setFont(font)
-                debug_print(f"🔍 Font size: {base_size} → {new_font_size}")
+        debug_print(f"🔍 Font size: {base_size} → {new_font_size}")
                 
                 # Scale button sizes
                 base_size = 24
                 scaled_size = int(base_size * scale_factor)
-                debug_print(f"🔍 Button size: {base_size} → {scaled_size}")
+        debug_print(f"🔍 Button size: {base_size} → {scaled_size}")
                 
                 self.btn_quick_menu.setFixedSize(scaled_size, scaled_size)
                 self.btn_save_version.setFixedSize(scaled_size, scaled_size)
@@ -1199,18 +1199,18 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 type_width = int(70 * scale_factor)
                 self.type_btn.setFixedSize(type_width, scaled_size)
                 self.dept_btn.setFixedSize(type_width, scaled_size)
-                debug_print(f"🔍 Type/Dept button size: 70 → {type_width}")
+        debug_print(f"🔍 Type/Dept button size: 70 → {type_width}")
                 
                 # Scale handle
                 handle_width = int(20 * scale_factor)
                 self.handle_area.setFixedWidth(handle_width)
-                debug_print(f"🔍 Handle width: 20 → {handle_width}")
+        debug_print(f"🔍 Handle width: 20 → {handle_width}")
                 
                 # Scale file display
                 display_width = int(160 * scale_factor)
                 self.shot_display.setMinimumWidth(display_width)
                 self.shot_display.setMaximumWidth(display_width)
-                debug_print(f"🔍 File display width: 160 → {display_width}")
+        debug_print(f"🔍 File display width: 160 → {display_width}")
                 
                 # Update margins and spacing
                 layout = self.layout()
@@ -1222,15 +1222,15 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 
                 layout.setContentsMargins(margin_left, margin_top, margin_right, margin_bottom)
                 layout.setSpacing(spacing)
-                debug_print(f"🔍 Layout margins: (4,3,6,3) → ({margin_left},{margin_top},{margin_right},{margin_bottom})")
-                debug_print(f"🔍 Layout spacing: 3 → {spacing}")
+        debug_print(f"🔍 Layout margins: (4,3,6,3) → ({margin_left},{margin_top},{margin_right},{margin_bottom})")
+        debug_print(f"🔍 Layout spacing: 3 → {spacing}")
                 
-                debug_print(f"✅ UI scale applied successfully: {scale}%")
+        debug_print(f"✅ UI scale applied successfully: {scale}%")
             else:
-                debug_print(f"🔍 No scaling needed: {scale}%")
+        debug_print(f"🔍 No scaling needed: {scale}%")
                 
         except Exception as e:
-            debug_print(f"⚠️ Error applying UI scale: {e}")
+        debug_print(f"⚠️ Error applying UI scale: {e}")
             import traceback
             traceback.print_exc()
     
@@ -1253,7 +1253,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 self.settings_dialog.settings_changed.connect(self._on_settings_changed)
                 
         except Exception as e:
-            debug_print(f"⚠️ Error opening settings dialog: {e}")
+        debug_print(f"⚠️ Error opening settings dialog: {e}")
             hou.ui.displayMessage(f"Error opening settings:\n{str(e)}", 
                                  severity=hou.severityType.Error)
     
@@ -1267,6 +1267,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             self._refresh_files_for_current_tab()
             
         except Exception as e:
-            debug_print(f"⚠️ Error handling settings change: {e}")
+        debug_print(f"⚠️ Error handling settings change: {e}")
 
 
