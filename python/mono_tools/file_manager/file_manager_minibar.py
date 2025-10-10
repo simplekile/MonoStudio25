@@ -80,8 +80,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(160); self.shot_display.setMaximumWidth(160); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
-        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• Reload Scene\n• Restart Houdini\n• Open File Location\n• Open Render Folder"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
-        self.btn_new=QtWidgets.QToolButton(); self.btn_new.setText("📄"); self.btn_new.setFixedSize(24, 24); self.btn_new.setToolTip("New File\n• Create new asset/shot file\n• Auto-naming based on type/department"); self.btn_new.clicked.connect(self._new_file)
+        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• Reload Scene\n• Restart Houdini\n• Open File Location\n• Open Render Folder"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
         self.btn_save_version=QtWidgets.QToolButton(); self.btn_save_version.setText("💾"); self.btn_save_version.setFixedSize(24, 24); self.btn_save_version.setToolTip("Save Version\n• Increment version number\n• Move old version to Vers folder"); self.btn_save_version.clicked.connect(self._save_version)
         # Set font to ensure emoji displays correctly
         font = self.btn_save_version.font()
@@ -94,7 +93,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         lay.addWidget(self.type_btn, 0)
         lay.addWidget(self.dept_btn, 0)
         lay.addWidget(self.shot_display, 1)
-        lay.addWidget(self.btn_new, 0)
         lay.addWidget(self.btn_quick_menu, 0)
         lay.addWidget(self.btn_save_version, 0)
         lay.addWidget(self.btn_settings, 0)
@@ -420,6 +418,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             QMenu::item { padding:8px 16px; }
             QMenu::item:selected { background:#3d5a99; }
         """)
+        new_action = menu.addAction("📄 New File..."); new_action.triggered.connect(self._new_file)
+        menu.addSeparator()
         reload_action = menu.addAction("🔄 Reload Scene"); reload_action.triggered.connect(self._reload_scene)
         restart_action = menu.addAction("🔃 Restart Houdini"); restart_action.triggered.connect(self._restart_houdini)
         menu.addSeparator()
