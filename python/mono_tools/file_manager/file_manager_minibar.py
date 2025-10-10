@@ -910,7 +910,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             traceback.print_exc()
     
     def _new_folder(self):
-        """Create new asset folder structure with all departments"""
+        """Create new asset or shot folder structure"""
         try:
             # Get project settings
             root = self.s.value("project_root", "", type=str)
@@ -924,6 +924,39 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 )
                 return
             
+            # Detect context: Asset or Shot?
+            # Ask user first
+            context_choice = hou.ui.displayMessage(
+                "What would you like to create?",
+                buttons=("Asset Folder", "Shot Folder", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=2,
+                title="New Folder"
+            )
+            
+            if context_choice == 2:  # Cancel
+                return
+            
+            context_type = "asset" if context_choice == 0 else "shot"
+            
+            if context_type == "asset":
+                self._new_asset_folder(root, project)
+            else:
+                self._new_shot_folder(root, project)
+                
+        except Exception as e:
+            hou.ui.displayMessage(
+                f"Error creating folder:\n{str(e)}",
+                severity=hou.severityType.Error,
+                title="New Folder Error"
+            )
+            import traceback
+            traceback.print_exc()
+    
+    def _new_asset_folder(self, root, project):
+        """Create new asset folder structure"""
+        try:
             # Load asset types from config (not scan - so user can create even if folder doesn't exist)
             asset_types = load_asset_types_config()
             
@@ -1114,6 +1147,150 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 f"Failed to create folder structure:\n{str(e)}",
                 severity=hou.severityType.Error,
                 title="New Folder Error"
+            )
+            import traceback
+            traceback.print_exc()
+    
+    def _new_shot_folder(self, root, project):
+        """Create new shot folder structure"""
+        try:
+            from .ui import ConfigManager
+            
+            project_path = os.path.join(root, project)
+            
+            # Ask for shot name (format: sq###_sh####)
+            result = hou.ui.readInput(
+                "Enter shot name:\n\nFormat: sq010_sh0010\n(Sequence + Shot number)",
+                buttons=("Create", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=1,
+                title="New Shot - Name",
+                initial_contents="sq010_sh0010"
+            )
+            
+            if result[0] != 0:  # Cancelled
+                return
+            
+            shot_name = result[1].strip()
+            if not shot_name:
+                hou.ui.displayMessage("Shot name cannot be empty.", severity=hou.severityType.Warning)
+                return
+            
+            # Validate shot name format (optional but recommended)
+            if '_' not in shot_name:
+                hou.ui.displayMessage(
+                    "Shot name should follow format: sq###_sh####\n\nExample: sq010_sh0010",
+                    severity=hou.severityType.Warning
+                )
+                return
+            
+            # Load shot departments using ConfigManager
+            shot_departments = ConfigManager.load_shot_departments()
+            
+            if not shot_departments:
+                hou.ui.displayMessage(
+                    "No shot departments configured.\n\nUsing default: Layout/Anim/FX/Light/Comp",
+                    severity=hou.severityType.Warning,
+                    title="New Shot"
+                )
+            
+            # Build preview
+            preview = f"Creating shot structure:\n\n"
+            preview += f"02_shots/{shot_name}/\n"
+            
+            for i, dept in enumerate(shot_departments):
+                dept_id = dept['id']
+                dept_name = dept.get('name', dept_id)
+                icon = dept.get('icon', '📁')
+                software_folders = dept.get('software_folders', [])
+                create_publish = dept.get('create_publish', False)
+                
+                is_last = (i == len(shot_departments) - 1)
+                branch = "└─" if is_last else "├─"
+                
+                preview += f"  {branch} {icon} {dept_id}/ ({dept_name})\n"
+                
+                # Software subfolders
+                if software_folders:
+                    for j, sw in enumerate(software_folders):
+                        is_last_sw = (j == len(software_folders) - 1) and not create_publish
+                        sw_branch = "└─" if is_last_sw else "├─"
+                        indent = "     " if is_last else "  │  "
+                        preview += f"{indent}{sw_branch} {sw}/\n"
+                
+                # Publish folder
+                if create_publish:
+                    indent = "     " if is_last else "  │  "
+                    preview += f"{indent}└─ _publish/\n"
+            
+            total_folders = len(shot_departments)
+            for dept in shot_departments:
+                total_folders += len(dept.get('software_folders', []))
+                if dept.get('create_publish', False):
+                    total_folders += 1
+            
+            preview += f"\nTotal: {len(shot_departments)} departments, {total_folders} folders\n\nProceed?"
+            
+            confirm = hou.ui.displayMessage(
+                preview,
+                buttons=("Create", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=1,
+                title="Confirm Shot Structure"
+            )
+            
+            if confirm != 0:  # Cancelled
+                return
+            
+            # Create shot folder structure
+            shot_base = os.path.join(project_path, "02_shots")
+            os.makedirs(shot_base, exist_ok=True)
+            
+            shot_folder = os.path.join(shot_base, shot_name)
+            
+            if os.path.exists(shot_folder):
+                hou.ui.displayMessage(
+                    f"Shot already exists:\n{shot_name}",
+                    severity=hou.severityType.Warning
+                )
+                return
+            
+            # Create shot folder
+            os.makedirs(shot_folder, exist_ok=True)
+            
+            # Create all department folders
+            for dept in shot_departments:
+                dept_id = dept['id']
+                dept_folder = os.path.join(shot_folder, dept_id)
+                os.makedirs(dept_folder, exist_ok=True)
+                
+                # Software subfolders
+                for sw in dept.get('software_folders', []):
+                    sw_folder = os.path.join(dept_folder, sw)
+                    os.makedirs(sw_folder, exist_ok=True)
+                
+                # Publish folder
+                if dept.get('create_publish', False):
+                    publish_folder = os.path.join(dept_folder, '_publish')
+                    os.makedirs(publish_folder, exist_ok=True)
+            
+            # Success message
+            hou.ui.displayMessage(
+                f"Shot created successfully!\n\n{shot_name}\n\nCreate a new file in this shot?",
+                buttons=("Create File", "Done"),
+                severity=hou.severityType.Message,
+                title="Shot Created"
+            )
+            
+            # TODO: Open new file dialog for shot
+            
+        except Exception as e:
+            hou.ui.displayMessage(
+                f"Failed to create shot:\n{str(e)}",
+                severity=hou.severityType.Error,
+                title="New Shot Error"
             )
             import traceback
             traceback.print_exc()

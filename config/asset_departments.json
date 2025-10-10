@@ -1,0 +1,89 @@
+{
+  "departments": [
+    {
+      "id": "01_modeling",
+      "name": "Modeling",
+      "icon": "🎨",
+      "description": "Geometry and modeling work",
+      "software_folders": ["houdini", "maya", "zbrush"],
+      "create_publish": true,
+      "subdepartments": [
+        {
+          "id": "01_sculpt",
+          "name": "Sculpt",
+          "create_publish": true
+        },
+        {
+          "id": "02_retopo",
+          "name": "Retopo",
+          "create_publish": true
+        },
+        {
+          "id": "03_uv",
+          "name": "UV",
+          "create_publish": false
+        }
+      ]
+    },
+    {
+      "id": "02_rigging",
+      "name": "Rigging",
+      "icon": "🦴",
+      "description": "Character rigging and setup",
+      "software_folders": ["maya"],
+      "create_publish": true
+    },
+    {
+      "id": "03_surfacing",
+      "name": "Surfacing",
+      "icon": "🎭",
+      "description": "Materials and texturing",
+      "software_folders": ["houdini", "substance", "mari"],
+      "create_publish": true,
+      "subdepartments": [
+        {
+          "id": "01_texture",
+          "name": "Texture",
+          "create_publish": false
+        }
+      ]
+    },
+    {
+      "id": "04_lookdev",
+      "name": "LookDev",
+      "icon": "💡",
+      "description": "Look development and shading",
+      "software_folders": ["houdini"],
+      "create_publish": false
+    },
+    {
+      "id": "05_groom",
+      "name": "Groom",
+      "icon": "✂️",
+      "description": "Hair and fur grooming",
+      "software_folders": ["houdini"],
+      "create_publish": true
+    },
+    {
+      "id": "06_anim",
+      "name": "Animation",
+      "icon": "🎬",
+      "description": "Animation tests and cycles",
+      "software_folders": ["maya", "houdini"],
+      "create_publish": false
+    },
+    {
+      "id": "07_turntable",
+      "name": "Turntable",
+      "icon": "🔄",
+      "description": "Turntable renders and reviews",
+      "software_folders": ["houdini"],
+      "create_publish": false
+    }
+  ],
+  "version": "1.0",
+  "last_modified": "2025-01-27",
+  "type": "asset_departments",
+  "description": "Department configuration for asset development pipeline"
+}
+

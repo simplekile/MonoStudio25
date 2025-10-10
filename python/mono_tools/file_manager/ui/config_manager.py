@@ -26,6 +26,14 @@ class ConfigManager:
         return current_dir
     
     @staticmethod
+    def _get_project_config_dir():
+        """Get project-level config directory (config/)"""
+        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Go up to mono_tools, then up to python, then to config/
+        config_path = os.path.join(current_dir, '..', '..', 'config')
+        return os.path.normpath(config_path)
+    
+    @staticmethod
     def load_department_config():
         """
         Load department structure configuration
@@ -256,4 +264,110 @@ class ConfigManager:
         ]
         
         return ConfigManager.save_department_config(config)
+    
+    @staticmethod
+    def load_asset_departments():
+        """
+        Load department configuration for ASSETS
+        
+        Returns:
+            list: List of department dictionaries for assets
+        """
+        try:
+            config_dir = ConfigManager._get_project_config_dir()
+            config_path = os.path.join(config_dir, 'asset_departments.json')
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('departments', [])
+            else:
+                # Fallback to standard_departments from main config
+                main_config = ConfigManager.load_department_config()
+                if main_config and 'standard_departments' in main_config:
+                    return main_config['standard_departments']
+                return []
+        except Exception as e:
+            print(f"Error loading asset departments: {e}")
+            return []
+    
+    @staticmethod
+    def load_shot_departments():
+        """
+        Load department configuration for SHOTS
+        
+        Returns:
+            list: List of department dictionaries for shots
+        """
+        try:
+            config_dir = ConfigManager._get_project_config_dir()
+            config_path = os.path.join(config_dir, 'shot_departments.json')
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('departments', [])
+            else:
+                # Fallback to default shot departments
+                return [
+                    {
+                        "id": "01_layout",
+                        "name": "Layout",
+                        "icon": "📐",
+                        "description": "Camera layout and blocking",
+                        "software_folders": ["maya", "houdini"],
+                        "create_publish": true
+                    },
+                    {
+                        "id": "02_animation",
+                        "name": "Animation",
+                        "icon": "🎭",
+                        "description": "Character and object animation",
+                        "software_folders": ["maya"],
+                        "create_publish": true
+                    },
+                    {
+                        "id": "03_fx",
+                        "name": "FX",
+                        "icon": "💥",
+                        "description": "Effects and simulations",
+                        "software_folders": ["houdini"],
+                        "create_publish": true
+                    },
+                    {
+                        "id": "04_lighting",
+                        "name": "Lighting",
+                        "icon": "💡",
+                        "description": "Lighting and rendering",
+                        "software_folders": ["houdini"],
+                        "create_publish": true
+                    },
+                    {
+                        "id": "05_comp",
+                        "name": "Compositing",
+                        "icon": "🎨",
+                        "description": "Final compositing",
+                        "software_folders": ["nuke"],
+                        "create_publish": true
+                    }
+                ]
+        except Exception as e:
+            print(f"Error loading shot departments: {e}")
+            return []
+    
+    @staticmethod
+    def get_departments(context_type="asset"):
+        """
+        Get departments based on context (asset or shot)
+        
+        Args:
+            context_type: "asset" or "shot"
+            
+        Returns:
+            list: Appropriate departments for the context
+        """
+        if context_type == "shot":
+            return ConfigManager.load_shot_departments()
+        else:
+            return ConfigManager.load_asset_departments()
 
