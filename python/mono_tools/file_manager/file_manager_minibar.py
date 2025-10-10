@@ -220,12 +220,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         
         # Remove startup toggle - always auto-start
         
-        # Version info
+        # Version info (use cached version to avoid git calls)
         try:
-            from mono_tools.version import get_version_string, get_full_version_string
-            version_text = get_version_string()
-            version_action = menu.addAction(f"ℹ️ {version_text}")
-            version_action.setToolTip(get_full_version_string())
+            from mono_tools import __version__
+            version_action = menu.addAction(f"ℹ️ v{__version__}")
+            version_action.setToolTip(f"Mono Studio v{__version__}")
             version_action.setEnabled(False)  # Disabled, just for display
         except Exception as e:
             debug_print(f"⚠️ Error loading version: {e}")

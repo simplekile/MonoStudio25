@@ -117,13 +117,12 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         
         title_layout.addStretch()
         
-        # Version info
+        # Version info (use package version to avoid git subprocess calls)
         try:
-            from mono_tools.version import get_version_string, get_full_version_string
-            version_text = get_version_string()
-            self.version_label = QtWidgets.QLabel(version_text)
+            from mono_tools import __version__
+            self.version_label = QtWidgets.QLabel(f"v{__version__}")
             self.version_label.setStyleSheet("QLabel { color: #888; font-size: 12px; }")
-            self.version_label.setToolTip(get_full_version_string())
+            self.version_label.setToolTip(f"Mono Studio v{__version__}")
             title_layout.addWidget(self.version_label)
         except Exception as e:
             print(f"⚠️ Error loading version: {e}")
