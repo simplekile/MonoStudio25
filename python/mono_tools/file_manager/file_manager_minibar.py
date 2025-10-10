@@ -534,15 +534,17 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             new_x = minibar_right - self.width()
             new_y = minibar_top
             
-            # Ensure position is visible on screen
+            # Ensure position is visible on screen (but allow slight overflow for edge positioning)
             screen = QtWidgets.QApplication.primaryScreen()
             if screen:
                 screen_geo = screen.availableGeometry()
+                # Allow MiniBar to go slightly off-screen (like original design)
+                # Only enforce minimum left edge visibility
                 min_visible = 50
-                new_x = max(screen_geo.x() - self.width() + min_visible, 
-                           min(new_x, screen_geo.right() - min_visible))
+                max_x = screen_geo.right() - min_visible  # At least 50px visible on left
+                new_x = min(new_x, max_x)
                 new_y = max(screen_geo.y(), 
-                           min(new_y, screen_geo.bottom() - min_visible))
+                           min(new_y, screen_geo.bottom() - self.height()))
             
             # Move to new position
             self.move(new_x, new_y)
