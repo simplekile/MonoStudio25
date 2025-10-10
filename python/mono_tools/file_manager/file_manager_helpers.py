@@ -531,9 +531,29 @@ def save_department_config(config_data):
     except Exception as e:
         return False, f"Failed to save configuration:\n{str(e)}"
 
+def load_asset_types_config():
+    """
+    Load asset types from config
+    Returns list of types that can be created (even if folders don't exist yet)
+    """
+    try:
+        config = load_department_config()
+        if config and 'asset_types' in config:
+            return config['asset_types']
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Could not load asset types: {e}")
+    
+    # Fallback defaults
+    return [
+        {"id": "_characters", "name": "Characters", "prefix": "char_", "icon": "🧑"},
+        {"id": "_props", "name": "Props", "prefix": "prop_", "icon": "📦"},
+        {"id": "_environments", "name": "Environments", "prefix": "env_", "icon": "🏞️"},
+    ]
+
 def create_asset_folder_structure(base_dir, type_name, asset_name, departments=None):
     """
-    Create complete folder structure for a new asset
+    Create complete folder structure for a new asset with software subfolders
     
     Args:
         base_dir: Project root directory
@@ -545,22 +565,41 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
         (success, asset_folder_path, message)
     """
     try:
-        # Add prefix if not present
+        # Add prefix if not present (from asset_types config if available)
         if not any(asset_name.lower().startswith(p) for p in ['char_', 'prop_', 'env_', 'veh_', 'fx_']):
-            # Guess prefix from type
-            if 'character' in type_name.lower():
-                asset_name = f"char_{asset_name}"
-            elif 'prop' in type_name.lower():
-                asset_name = f"prop_{asset_name}"
-            elif 'environment' in type_name.lower():
-                asset_name = f"env_{asset_name}"
-            elif 'vehicle' in type_name.lower():
-                asset_name = f"veh_{asset_name}"
-            elif 'fx' in type_name.lower() or 'effect' in type_name.lower():
-                asset_name = f"fx_{asset_name}"
+            # Try to get prefix from asset types config
+            asset_types = load_asset_types_config()
+            prefix = None
+            for atype in asset_types:
+                if atype['id'] == type_name:
+                    prefix = atype.get('prefix', '')
+                    break
+            
+            # Fallback to guessing
+            if not prefix:
+                if 'character' in type_name.lower():
+                    prefix = 'char_'
+                elif 'prop' in type_name.lower():
+                    prefix = 'prop_'
+                elif 'environment' in type_name.lower():
+                    prefix = 'env_'
+                elif 'vehicle' in type_name.lower():
+                    prefix = 'veh_'
+                else:
+                    prefix = ''
+            
+            if prefix:
+                asset_name = f"{prefix}{asset_name}"
         
-        # Create asset base folder
-        asset_folder = os.path.join(base_dir, "01_assets", type_name, asset_name)
+        # Ensure parent folders exist
+        assets_dir = os.path.join(base_dir, "01_assets")
+        os.makedirs(assets_dir, exist_ok=True)
+        
+        type_dir = os.path.join(assets_dir, type_name)
+        os.makedirs(type_dir, exist_ok=True)
+        
+        # Create asset folder
+        asset_folder = os.path.join(type_dir, asset_name)
         
         if os.path.exists(asset_folder):
             return False, asset_folder, f"Asset folder already exists:\n{asset_folder}"
@@ -569,19 +608,52 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
         if not departments:
             departments = get_standard_departments()
         
-        # Create all department folders
-        created_folders = []
-        for dept in departments:
-            dept_path = os.path.join(asset_folder, dept)
-            os.makedirs(dept_path, exist_ok=True)
-            created_folders.append(dept)
+        # Load department config for software subfolders
+        config = load_department_config()
+        dept_map = {}
+        if config and 'standard_departments' in config:
+            dept_map = {d['id']: d for d in config['standard_departments']}
         
+        # Create all department folders (with software subfolders if configured)
+        created_structure = []
+        for dept_id in departments:
+            dept_path = os.path.join(asset_folder, dept_id)
+            
+            # Get department config
+            dept_config = dept_map.get(dept_id, {})
+            software_folders = dept_config.get('software_folders', [])
+            
+            if software_folders:
+                # Create software subfolders
+                for software in software_folders:
+                    software_path = os.path.join(dept_path, software)
+                    os.makedirs(software_path, exist_ok=True)
+                    created_structure.append(f"{dept_id}/{software}")
+            else:
+                # Just create department folder
+                os.makedirs(dept_path, exist_ok=True)
+                created_structure.append(dept_id)
+        
+        # Build success message with structure details
         success_msg = f"Asset folder created successfully!\n\n"
         success_msg += f"Asset: {asset_name}\n"
+        success_msg += f"Type: {type_name}\n"
         success_msg += f"Location: {asset_folder}\n\n"
-        success_msg += f"Departments created:\n"
-        for dept in created_folders:
-            success_msg += f"  • {dept}\n"
+        success_msg += f"Structure created:\n"
+        
+        current_dept = None
+        for item in created_structure:
+            if '/' in item:
+                # Software subfolder
+                dept, software = item.split('/')
+                if dept != current_dept:
+                    success_msg += f"  {dept}/\n"
+                    current_dept = dept
+                success_msg += f"    ├─ {software}/\n"
+            else:
+                # Simple department
+                success_msg += f"  {item}/\n"
+                current_dept = item
         
         return True, asset_folder, success_msg
         
