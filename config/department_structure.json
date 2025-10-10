@@ -1,0 +1,49 @@
+{
+  "standard_departments": [
+    {
+      "id": "01_modeling",
+      "name": "Modeling",
+      "icon": "🎨",
+      "description": "Geometry and modeling work"
+    },
+    {
+      "id": "02_rigging",
+      "name": "Rigging",
+      "icon": "🦴",
+      "description": "Character rigging and setup"
+    },
+    {
+      "id": "03_surfacing",
+      "name": "Surfacing",
+      "icon": "🎭",
+      "description": "Materials and texturing"
+    },
+    {
+      "id": "04_lookdev",
+      "name": "LookDev",
+      "icon": "💡",
+      "description": "Look development and shading"
+    },
+    {
+      "id": "05_groom",
+      "name": "Groom",
+      "icon": "✂️",
+      "description": "Hair and fur grooming"
+    },
+    {
+      "id": "06_anim",
+      "name": "Animation",
+      "icon": "🎬",
+      "description": "Animation work"
+    },
+    {
+      "id": "07_turntable",
+      "name": "Turntable",
+      "icon": "🔄",
+      "description": "Turntable renders"
+    }
+  ],
+  "version": "1.0",
+  "last_modified": "2024-12-19"
+}
+

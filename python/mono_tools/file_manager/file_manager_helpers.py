@@ -464,7 +464,30 @@ def clean_asset_name(asset_name):
     return asset_name
 
 def get_standard_departments():
-    """Get standard department list for asset creation"""
+    """
+    Get standard department list for asset creation
+    Loads from config/department_structure.json or returns defaults
+    """
+    try:
+        # Try to load from config file
+        import sys
+        from pathlib import Path
+        
+        # Find config file relative to this module
+        current_dir = Path(__file__).parent.parent.parent
+        config_file = current_dir / "config" / "department_structure.json"
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                departments = config.get('standard_departments', [])
+                # Return just the IDs
+                return [dept['id'] for dept in departments]
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Could not load department config: {e}")
+    
+    # Fallback to hardcoded defaults
     return [
         "01_modeling",
         "02_rigging",
@@ -474,6 +497,39 @@ def get_standard_departments():
         "06_anim",
         "07_turntable",
     ]
+
+def load_department_config():
+    """Load full department configuration"""
+    try:
+        from pathlib import Path
+        current_dir = Path(__file__).parent.parent.parent
+        config_file = current_dir / "config" / "department_structure.json"
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Could not load department config: {e}")
+    
+    return None
+
+def save_department_config(config_data):
+    """Save department configuration"""
+    try:
+        from pathlib import Path
+        current_dir = Path(__file__).parent.parent.parent
+        config_file = current_dir / "config" / "department_structure.json"
+        
+        # Ensure config directory exists
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config_data, f, indent=2, ensure_ascii=False)
+        
+        return True, "Configuration saved successfully!"
+    except Exception as e:
+        return False, f"Failed to save configuration:\n{str(e)}"
 
 def create_asset_folder_structure(base_dir, type_name, asset_name, departments=None):
     """
