@@ -244,14 +244,23 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     
     def _reset_position(self):
         """Reset to default position"""
-        # Clear saved position
+        # Clear ALL saved position values (absolute, relative, and offset)
         self.s.remove("minibar_x")
         self.s.remove("minibar_y")
+        self.s.remove("minibar_offset_x")
+        self.s.remove("minibar_offset_y")
+        self.s.remove("minibar_rel_x")
+        self.s.remove("minibar_rel_y")
+        self.s.remove("minibar_abs_x")
+        self.s.remove("minibar_abs_y")
         self.s.sync()
         
-        # Move to default position (same logic as initial load)
+        # Move to default position
         default_x, default_y = self._get_default_position()
         self.move(default_x, default_y)
+        
+        # Save new position
+        self._save_relative_position()
     
     def _close_minibar(self):
         """Close MiniBar"""
