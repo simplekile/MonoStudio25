@@ -19,6 +19,79 @@ from .file_manager_helpers import (
     ORG, APP
 )
 
+class SmartLineEdit(QtWidgets.QLineEdit):
+    """LineEdit with Chrome-style inline autocomplete suggestions"""
+    
+    def __init__(self, suggestions_dict=None, parent=None):
+        super().__init__(parent)
+        self.suggestions_dict = suggestions_dict or {}
+        self.current_suggestion = ""
+        
+    def keyPressEvent(self, event):
+        """Handle Tab key to accept suggestion"""
+        if event.key() == QtCore.Qt.Key_Tab and self.current_suggestion:
+            # Accept suggestion
+            self.setText(self.current_suggestion)
+            self.current_suggestion = ""
+            self.update()
+            event.accept()
+            # Move to next field
+            self.focusNextChild()
+            return
+        
+        super().keyPressEvent(event)
+        self._update_suggestion()
+    
+    def _update_suggestion(self):
+        """Find matching suggestion based on typed text"""
+        text = self.text().lower().strip()
+        
+        if not text:
+            self.current_suggestion = ""
+            self.update()
+            return
+        
+        # Find best match from suggestions
+        for key, value in self.suggestions_dict.items():
+            if key.startswith(text):
+                self.current_suggestion = value
+                self.update()
+                return
+        
+        # No match found
+        self.current_suggestion = ""
+        self.update()
+    
+    def paintEvent(self, event):
+        """Custom paint to show gray suggestion text"""
+        super().paintEvent(event)
+        
+        # Draw suggestion in gray after typed text
+        if self.current_suggestion and self.text():
+            typed = self.text()
+            
+            # Check if suggestion matches typed text
+            if self.current_suggestion.lower().startswith(typed.lower()):
+                painter = QtGui.QPainter(self)
+                painter.setRenderHint(QtGui.QPainter.Antialiasing)
+                
+                # Calculate position
+                fm = self.fontMetrics()
+                typed_width = fm.horizontalAdvance(typed)
+                
+                # Get suggestion part (what's not typed yet)
+                suggestion_part = self.current_suggestion[len(typed):]
+                
+                # Draw gray text
+                painter.setPen(QtGui.QColor(128, 128, 128))  # Gray
+                
+                # Position: after typed text with padding
+                x = typed_width + 8  # 8px padding from left
+                y = (self.height() + fm.ascent() - fm.descent()) // 2
+                
+                painter.drawText(x, y, suggestion_part)
+                painter.end()
+
 class AssetTypeDialog(QtWidgets.QDialog):
     """Custom dialog for adding/editing asset types - File Manager style"""
     
@@ -56,20 +129,40 @@ class AssetTypeDialog(QtWidgets.QDialog):
         fields_layout = QtWidgets.QFormLayout()
         fields_layout.setSpacing(10)
         
-        # Folder name
-        self.folder_edit = QtWidgets.QLineEdit()
-        self.folder_edit.setPlaceholderText("e.g., _vehicles")
+        # Common asset type suggestions
+        COMMON_TYPES = {
+            'char': '_characters',
+            'character': '_characters',
+            'prop': '_props',
+            'env': '_environments',
+            'environment': '_environments',
+            'veh': '_vehicles',
+            'vehicle': '_vehicles',
+            'weap': '_weapons',
+            'weapon': '_weapons',
+            'fx': '_fx',
+            'effect': '_fx',
+            'set': '_sets',
+            'cam': '_cameras',
+            'camera': '_cameras',
+            'light': '_lights'
+        }
+        
+        # Smart folder name input with autocomplete
+        self.folder_edit = SmartLineEdit(COMMON_TYPES, self)
+        self.folder_edit.setPlaceholderText("Type: char, prop, env...")
         self.folder_edit.textChanged.connect(self._on_folder_changed)
         fields_layout.addRow("📁 Folder Name:", self.folder_edit)
         
-        # Display name
-        self.name_edit = QtWidgets.QLineEdit()
-        self.name_edit.setPlaceholderText("e.g., Vehicles")
-        fields_layout.addRow("🏷️ Display Name:", self.name_edit)
+        # Hint for Tab key
+        hint = QtWidgets.QLabel("💡 Press Tab to accept suggestion")
+        hint.setStyleSheet("QLabel { color: #888; font-size: 9pt; font-style: italic; margin-left: 20px; }")
+        fields_layout.addRow("", hint)
         
-        # Prefix
+        # Prefix (auto-generated, but editable)
         self.prefix_edit = QtWidgets.QLineEdit()
-        self.prefix_edit.setPlaceholderText("e.g., veh_")
+        self.prefix_edit.setPlaceholderText("Auto-generated from folder")
+        self.prefix_edit.textChanged.connect(self._update_preview)
         fields_layout.addRow("🔤 Prefix:", self.prefix_edit)
         
         layout.addLayout(fields_layout)
@@ -164,68 +257,63 @@ class AssetTypeDialog(QtWidgets.QDialog):
         self.cancel_btn.setObjectName("cancel_btn")
     
     def _on_folder_changed(self, text):
-        """Auto-generate name and prefix when folder changes"""
+        """Auto-generate prefix from folder name"""
         if not text.strip():
+            self.prefix_edit.clear()
+            self._update_preview()
             return
         
-        # Generate smart defaults
-        folder = text.strip()
+        # Use suggestion if available, otherwise use typed text
+        folder = self.folder_edit.current_suggestion if self.folder_edit.current_suggestion else text.strip()
         
-        # Display name: Remove underscore, capitalize
-        name = folder.replace('_', '').title()
-        if name.startswith('Char'):
-            name = name.replace('Char', 'Character')
-        elif name.startswith('Prop'):
-            name = name.replace('Prop', 'Prop')
-        elif name.startswith('Env'):
-            name = name.replace('Env', 'Environment')
-        elif name.startswith('Veh'):
-            name = name.replace('Veh', 'Vehicle')
-        
-        # Prefix: Remove underscore, add underscore at end
+        # Generate prefix: remove underscore, add underscore at end
         prefix = folder.replace('_', '') + '_'
-        if prefix.startswith('Character'):
+        
+        # Smart mapping for common cases
+        if folder == '_characters':
             prefix = 'char_'
-        elif prefix.startswith('Prop'):
+        elif folder == '_props':
             prefix = 'prop_'
-        elif prefix.startswith('Environment'):
+        elif folder == '_environments':
             prefix = 'env_'
-        elif prefix.startswith('Vehicle'):
+        elif folder == '_vehicles':
             prefix = 'veh_'
+        elif folder == '_weapons':
+            prefix = 'weap_'
+        elif folder == '_fx':
+            prefix = 'fx_'
+        elif folder == '_sets':
+            prefix = 'set_'
+        elif folder == '_cameras':
+            prefix = 'cam_'
+        elif folder == '_lights':
+            prefix = 'light_'
         
-        # Update fields if they're empty or match old pattern
-        if not self.name_edit.text() or self.name_edit.text() == self._last_generated_name:
-            self.name_edit.setText(name)
-            self._last_generated_name = name
-        
-        if not self.prefix_edit.text() or self.prefix_edit.text() == self._last_generated_prefix:
-            self.prefix_edit.setText(prefix)
-            self._last_generated_prefix = prefix
-        
+        self.prefix_edit.setText(prefix)
         self._update_preview()
     
     def _update_preview(self):
-        """Update preview text"""
-        folder = self.folder_edit.text() or "_vehicles"
-        name = self.name_edit.text() or "Vehicles"
-        prefix = self.prefix_edit.text() or "veh_"
+        """Update preview with folder structure and example"""
+        folder = self.folder_edit.current_suggestion or self.folder_edit.text() or "_characters"
+        prefix = self.prefix_edit.text() or "char_"
         
-        preview = f"Folder: {folder}\nDisplay: {name}\nPrefix: {prefix}"
+        preview = f"Folder: 01_assets/{folder}/\n"
+        preview += f"Prefix: {prefix}\n"
+        preview += f"Example: {prefix}Hero_v001.hip"
+        
         self.preview_label.setText(preview)
     
     def _load_current_data(self):
         """Load current data for editing"""
         if self.current_data:
             self.folder_edit.setText(self.current_data.get('id', ''))
-            self.name_edit.setText(self.current_data.get('name', ''))
             self.prefix_edit.setText(self.current_data.get('prefix', ''))
             self._update_preview()
     
     def get_values(self):
-        """Get the entered values"""
+        """Get the entered values (folder_id, prefix only)"""
         return (
             self.folder_edit.text().strip(),
-            self.name_edit.text().strip(),
             self.prefix_edit.text().strip()
         )
 
@@ -719,11 +807,26 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 self.asset_type_list.addItem(item)
     
     def _add_asset_type(self):
-        """Add new asset type - custom dialog with 3 input fields"""
+        """Add new asset type - smart autocomplete dialog"""
         dialog = AssetTypeDialog(self, mode="add")
         if dialog.exec_():
-            type_id, type_name, prefix = dialog.get_values()
-        
+            type_id, prefix = dialog.get_values()
+            
+            if not type_id or not prefix:
+                hou.ui.displayMessage("Folder name and prefix are required.", severity=hou.severityType.Warning)
+                return
+            
+            # Generate display name from folder
+            type_name = type_id.replace('_', '').title()
+            if type_name == 'Characters':
+                type_name = 'Character'
+            elif type_name == 'Environments':
+                type_name = 'Environment'
+            elif type_name == 'Vehicles':
+                type_name = 'Vehicle'
+            elif type_name == 'Weapons':
+                type_name = 'Weapon'
+            
             # Add to config
             config = load_department_config()
             if not config:
@@ -746,7 +849,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             success, message = save_department_config(config)
             if success:
                 self._load_asset_types()
-                hou.ui.displayMessage(f"Asset type added!\n\n{type_id} → {prefix}... ({type_name})", severity=hou.severityType.Message)
+                hou.ui.displayMessage(f"Asset type added!\n\n{type_id} → {prefix}...", severity=hou.severityType.Message)
             else:
                 hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
     
@@ -762,13 +865,29 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         # Open edit dialog
         dialog = AssetTypeDialog(self, mode="edit", current_data=atype)
         if dialog.exec_():
-            type_id, type_name, prefix = dialog.get_values()
-        
+            type_id, prefix = dialog.get_values()
+            
+            if not type_id or not prefix:
+                hou.ui.displayMessage("Folder name and prefix are required.", severity=hou.severityType.Warning)
+                return
+            
+            # Generate display name from folder
+            type_name = type_id.replace('_', '').title()
+            if type_name == 'Characters':
+                type_name = 'Character'
+            elif type_name == 'Environments':
+                type_name = 'Environment'
+            elif type_name == 'Vehicles':
+                type_name = 'Vehicle'
+            elif type_name == 'Weapons':
+                type_name = 'Weapon'
+            
             # Update config
             config = load_department_config()
             if config and 'asset_types' in config:
                 for at in config['asset_types']:
                     if at['id'] == atype['id']:
+                        at['id'] = type_id  # Allow changing folder name
                         at['name'] = type_name
                         at['prefix'] = prefix
                         break
