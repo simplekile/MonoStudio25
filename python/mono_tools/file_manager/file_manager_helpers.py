@@ -3,6 +3,16 @@ from datetime import datetime
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import hou
 
+# Debug flag - set to True to enable verbose file scanning logs
+# Set MONO_DEBUG=1 environment variable to enable debug output
+DEBUG = os.environ.get('MONO_DEBUG', '0').lower() in ('1', 'true', 'yes')
+
+# Debug print helper - only prints if DEBUG is enabled
+def debug_print(*args, **kwargs):
+    """Print only if DEBUG mode is enabled"""
+    if DEBUG:
+        print(*args, **kwargs)
+
 ORG="Mono"; APP="FileManager"
 SUBPATH=os.path.join("02_shots","03_lighting")
 HOUDINI_EXTS={".hip",".hiplc",".hipnc"}
@@ -51,7 +61,7 @@ def get_render_folder_path(hip_file_path):
             project_root = os.path.dirname(hip_dir)
         return os.path.join(project_root, "render", "Final", filename_no_ext)
     except Exception as e:
-        print(f"⚠️ Error getting render folder path: {e}"); return None
+        if DEBUG: print(f"⚠️ Error getting render folder path: {e}"); return None
 
 def get_current_houdini_file():
     try:
@@ -178,101 +188,101 @@ def collect_asset_files(base_dir, asset_type=None, department=None, asset_name=N
     Returns:
         List of (filepath, asset_name, department_name) tuples
     """
-    print(f"🔍 collect_asset_files called with:")
-    print(f"  base_dir: {base_dir}")
-    print(f"  asset_type: {asset_type}")
-    print(f"  department: {department}")
-    print(f"  asset_name: {asset_name}")
-    print(f"  HOUDINI_EXTS: {HOUDINI_EXTS}")
+    if DEBUG: print(f"🔍 collect_asset_files called with:")
+    if DEBUG: print(f"  base_dir: {base_dir}")
+    if DEBUG: print(f"  asset_type: {asset_type}")
+    if DEBUG: print(f"  department: {department}")
+    if DEBUG: print(f"  asset_name: {asset_name}")
+    if DEBUG: print(f"  HOUDINI_EXTS: {HOUDINI_EXTS}")
     
     if not os.path.isdir(base_dir):
-        print(f"❌ Base directory does not exist: {base_dir}")
+        if DEBUG: print(f"❌ Base directory does not exist: {base_dir}")
         return []
     
     assets_dir = os.path.join(base_dir, "01_assets")
-    print(f"🔍 Looking for assets directory: {assets_dir}")
+    if DEBUG: print(f"🔍 Looking for assets directory: {assets_dir}")
     if not os.path.isdir(assets_dir):
-        print(f"❌ Assets directory does not exist: {assets_dir}")
+        if DEBUG: print(f"❌ Assets directory does not exist: {assets_dir}")
         return []
     
-    print(f"✅ Assets directory found: {assets_dir}")
+    if DEBUG: print(f"✅ Assets directory found: {assets_dir}")
     results = []
     
     try:
         # Scan asset types
-        print(f"🔍 Scanning asset types in: {assets_dir}")
+        if DEBUG: print(f"🔍 Scanning asset types in: {assets_dir}")
         type_entries = list(os.scandir(assets_dir))
-        print(f"  Found {len(type_entries)} entries in assets directory")
+        if DEBUG: print(f"  Found {len(type_entries)} entries in assets directory")
         
         for type_entry in type_entries:
-            print(f"  Checking entry: {type_entry.name} (is_dir: {type_entry.is_dir()})")
+            if DEBUG: print(f"  Checking entry: {type_entry.name} (is_dir: {type_entry.is_dir()})")
             if not type_entry.is_dir() or type_entry.name.startswith('.'):
-                print(f"    Skipping (not dir or hidden): {type_entry.name}")
+                if DEBUG: print(f"    Skipping (not dir or hidden): {type_entry.name}")
                 continue
                 
             # Filter by asset type if specified
             if asset_type and type_entry.name != asset_type:
-                print(f"    Skipping (asset type filter): {type_entry.name} != {asset_type}")
+                if DEBUG: print(f"    Skipping (asset type filter): {type_entry.name} != {asset_type}")
                 continue
                 
-            print(f"    ✅ Processing asset type: {type_entry.name}")
+            if DEBUG: print(f"    ✅ Processing asset type: {type_entry.name}")
                 
             # Scan assets within this type
             asset_entries = list(os.scandir(type_entry.path))
-            print(f"    Found {len(asset_entries)} asset entries in {type_entry.name}")
+            if DEBUG: print(f"    Found {len(asset_entries)} asset entries in {type_entry.name}")
             
             for asset_entry in asset_entries:
-                print(f"      Checking asset: {asset_entry.name} (is_dir: {asset_entry.is_dir()})")
+                if DEBUG: print(f"      Checking asset: {asset_entry.name} (is_dir: {asset_entry.is_dir()})")
                 if not asset_entry.is_dir() or asset_entry.name.startswith('.'):
-                    print(f"        Skipping (not dir or hidden): {asset_entry.name}")
+                    if DEBUG: print(f"        Skipping (not dir or hidden): {asset_entry.name}")
                     continue
                     
                 current_asset_name = asset_entry.name
-                print(f"        ✅ Processing asset: {current_asset_name}")
+                if DEBUG: print(f"        ✅ Processing asset: {current_asset_name}")
                 
                 # Filter by asset name if specified
                 if asset_name and current_asset_name != asset_name:
-                    print(f"        Skipping (asset name filter): {current_asset_name} != {asset_name}")
+                    if DEBUG: print(f"        Skipping (asset name filter): {current_asset_name} != {asset_name}")
                     continue
                 
                 # Scan departments within this asset
                 dept_entries = list(os.scandir(asset_entry.path))
-                print(f"        Found {len(dept_entries)} department entries in {current_asset_name}")
+                if DEBUG: print(f"        Found {len(dept_entries)} department entries in {current_asset_name}")
                 
                 for dept_entry in dept_entries:
-                    print(f"          Checking department: {dept_entry.name} (is_dir: {dept_entry.is_dir()})")
+                    if DEBUG: print(f"          Checking department: {dept_entry.name} (is_dir: {dept_entry.is_dir()})")
                     if not dept_entry.is_dir() or dept_entry.name.startswith('.'):
-                        print(f"            Skipping (not dir or hidden): {dept_entry.name}")
+                        if DEBUG: print(f"            Skipping (not dir or hidden): {dept_entry.name}")
                         continue
                         
                     # Filter by department if specified
                     if department and dept_entry.name != department:
-                        print(f"            Skipping (department filter): {dept_entry.name} != {department}")
+                        if DEBUG: print(f"            Skipping (department filter): {dept_entry.name} != {department}")
                         continue
                         
                     dept_name = dept_entry.name
-                    print(f"            ✅ Processing department: {dept_name}")
+                    if DEBUG: print(f"            ✅ Processing department: {dept_name}")
                     
                     # Scan files in this department
                     file_entries = list(os.scandir(dept_entry.path))
-                    print(f"            Found {len(file_entries)} files in {dept_name}")
+                    if DEBUG: print(f"            Found {len(file_entries)} files in {dept_name}")
                     
                     for file_entry in file_entries:
-                        print(f"              Checking file: {file_entry.name} (is_file: {file_entry.is_file()})")
+                        if DEBUG: print(f"              Checking file: {file_entry.name} (is_file: {file_entry.is_file()})")
                         if (file_entry.is_file() and 
                             os.path.splitext(file_entry.name)[1].lower() in HOUDINI_EXTS):
-                            print(f"                ✅ Found Houdini file: {file_entry.name}")
+                            if DEBUG: print(f"                ✅ Found Houdini file: {file_entry.name}")
                             results.append((file_entry.path, current_asset_name, dept_name))
                         else:
                             ext = os.path.splitext(file_entry.name)[1].lower()
-                            print(f"                Skipping (not Houdini file): {file_entry.name} (ext: {ext})")
+                            if DEBUG: print(f"                Skipping (not Houdini file): {file_entry.name} (ext: {ext})")
                             
     except Exception as e:
-        print(f"⚠️ Error collecting asset files: {e}")
+        if DEBUG: print(f"⚠️ Error collecting asset files: {e}")
         
-    print(f"🎯 Final result: Found {len(results)} asset files")
+    if DEBUG: print(f"🎯 Final result: Found {len(results)} asset files")
     for i, (filepath, asset_name, dept_name) in enumerate(results):
-        print(f"  {i+1}. {os.path.basename(filepath)} (asset: {asset_name}, dept: {dept_name})")
+        if DEBUG: print(f"  {i+1}. {os.path.basename(filepath)} (asset: {asset_name}, dept: {dept_name})")
         
     return results
 
@@ -292,7 +302,7 @@ def list_asset_types(base_dir):
                 types.append(entry.name)
         types.sort()
     except Exception as e:
-        print(f"⚠️ Error listing asset types: {e}")
+        if DEBUG: print(f"⚠️ Error listing asset types: {e}")
     
     return types
 
@@ -312,7 +322,7 @@ def list_asset_names(base_dir, asset_type):
                 assets.append(entry.name)
         assets.sort()
     except Exception as e:
-        print(f"⚠️ Error listing asset names: {e}")
+        if DEBUG: print(f"⚠️ Error listing asset names: {e}")
     
     return assets
 
@@ -332,7 +342,7 @@ def list_departments(base_dir, asset_type, asset_name):
                 departments.append(entry.name)
         departments.sort()
     except Exception as e:
-        print(f"⚠️ Error listing departments: {e}")
+        if DEBUG: print(f"⚠️ Error listing departments: {e}")
     
     return departments
 
@@ -353,7 +363,7 @@ def infer_asset_name(full_path):
         return name
         
     except Exception as e:
-        print(f"⚠️ Error inferring asset name: {e}")
+        if DEBUG: print(f"⚠️ Error inferring asset name: {e}")
         return "Unknown"
 
 def infer_department(full_path):
@@ -374,7 +384,7 @@ def infer_department(full_path):
         return "Unknown"
         
     except Exception as e:
-        print(f"⚠️ Error inferring department: {e}")
+        if DEBUG: print(f"⚠️ Error inferring department: {e}")
         return "Unknown"
 
 # ---------- Project root & tabs helpers ----------
@@ -389,7 +399,7 @@ def list_projects(root_dir):
                 projects.append(entry.name)
         projects.sort(key=lambda n: n.lower())
     except Exception as e:
-        print(f"⚠️ list_projects error: {e}")
+        if DEBUG: print(f"⚠️ list_projects error: {e}")
     return projects
 
 def load_tabs_settings(settings: 'QtCore.QSettings'):
@@ -408,7 +418,7 @@ def load_tabs_settings(settings: 'QtCore.QSettings'):
                 clean.append({"name": name, "subpath": subpath, "depth": depth})
             return clean
     except Exception as e:
-        print(f"⚠️ load_tabs_settings error: {e}")
+        if DEBUG: print(f"⚠️ load_tabs_settings error: {e}")
     return [{"name": "lighting", "subpath": SUBPATH, "depth": 1}]
 
 def save_tabs_settings(settings: 'QtCore.QSettings', tabs_conf):
@@ -416,7 +426,7 @@ def save_tabs_settings(settings: 'QtCore.QSettings', tabs_conf):
         settings.setValue("tabs_v2", json.dumps(tabs_conf))
         settings.sync()
     except Exception as e:
-        print(f"⚠️ save_tabs_settings error: {e}")
+        if DEBUG: print(f"⚠️ save_tabs_settings error: {e}")
 
 
 def parse_asset_info_from_filename(filename):
@@ -482,7 +492,7 @@ def parse_asset_info_from_filename(filename):
         return asset_type, asset_name, department
         
     except Exception as e:
-        print(f"⚠️ Error parsing asset info from filename '{filename}': {e}")
+        if DEBUG: print(f"⚠️ Error parsing asset info from filename '{filename}': {e}")
         return None, None, None
 
 
@@ -491,14 +501,14 @@ def collect_asset_files_filename(base_dir, asset_type=None, department=None, ass
     Collect asset files by scanning all .hip files and parsing filenames
     This is a fallback method when subfolder structure is not available
     """
-    print(f"🔍 collect_asset_files_filename called with:")
-    print(f"  base_dir: {base_dir}")
-    print(f"  asset_type: {asset_type}")
-    print(f"  department: {department}")
-    print(f"  asset_name: {asset_name}")
+    if DEBUG: print(f"🔍 collect_asset_files_filename called with:")
+    if DEBUG: print(f"  base_dir: {base_dir}")
+    if DEBUG: print(f"  asset_type: {asset_type}")
+    if DEBUG: print(f"  department: {department}")
+    if DEBUG: print(f"  asset_name: {asset_name}")
     
     if not os.path.isdir(base_dir):
-        print(f"❌ Base directory does not exist: {base_dir}")
+        if DEBUG: print(f"❌ Base directory does not exist: {base_dir}")
         return []
     
     results = []
@@ -525,12 +535,12 @@ def collect_asset_files_filename(base_dir, asset_type=None, department=None, ass
                         continue
                     
                     results.append((filepath, parsed_asset, parsed_dept or "unknown"))
-                    print(f"  ✅ Found: {file} -> asset: {parsed_asset}, dept: {parsed_dept or 'unknown'}")
+                    if DEBUG: print(f"  ✅ Found: {file} -> asset: {parsed_asset}, dept: {parsed_dept or 'unknown'}")
     
     except Exception as e:
-        print(f"⚠️ Error in filename-based collection: {e}")
+        if DEBUG: print(f"⚠️ Error in filename-based collection: {e}")
     
-    print(f"🎯 Filename-based result: Found {len(results)} asset files")
+    if DEBUG: print(f"🎯 Filename-based result: Found {len(results)} asset files")
     return results
 
 
@@ -538,24 +548,24 @@ def collect_asset_files_hybrid(base_dir, asset_type=None, department=None, asset
     """
     Hybrid approach: try subfolder-based search first, then filename-based search
     """
-    print(f"🔄 Starting hybrid asset collection")
+    if DEBUG: print(f"🔄 Starting hybrid asset collection")
     
     # First try subfolder-based search
-    print("1️⃣ Trying subfolder-based search...")
+    if DEBUG: print("1️⃣ Trying subfolder-based search...")
     subfolder_results = collect_asset_files(base_dir, asset_type, department, asset_name)
     
     if subfolder_results:
-        print(f"✅ Subfolder-based search found {len(subfolder_results)} files")
+        if DEBUG: print(f"✅ Subfolder-based search found {len(subfolder_results)} files")
         return subfolder_results
     
     # If no results, try filename-based search
-    print("2️⃣ No subfolder results, trying filename-based search...")
+    if DEBUG: print("2️⃣ No subfolder results, trying filename-based search...")
     filename_results = collect_asset_files_filename(base_dir, asset_type, department, asset_name)
     
     if filename_results:
-        print(f"✅ Filename-based search found {len(filename_results)} files")
+        if DEBUG: print(f"✅ Filename-based search found {len(filename_results)} files")
     else:
-        print("❌ No files found with either method")
+        if DEBUG: print("❌ No files found with either method")
     
     return filename_results
 
@@ -590,7 +600,7 @@ def scan_project_types(base_dir):
             types.append(("Shots", shots_dir, False))  # (name, path, is_assets)
             
     except Exception as e:
-        print(f"⚠️ Error scanning project types: {e}")
+        if DEBUG: print(f"⚠️ Error scanning project types: {e}")
     
     # Sort: assets first (alphabetically), then shots
     types.sort(key=lambda x: (not x[2], x[0]))  # is_assets=False comes first for shots
@@ -636,7 +646,7 @@ def scan_departments_for_type(base_dir, type_name, is_assets=True):
                         departments.add(entry.name)
                         
     except Exception as e:
-        print(f"⚠️ Error scanning departments for type '{type_name}': {e}")
+        if DEBUG: print(f"⚠️ Error scanning departments for type '{type_name}': {e}")
     
     # Sort departments
     return sorted(list(departments))
@@ -743,7 +753,7 @@ def collect_files_with_filters(base_dir, type_name, department=None):
                             results.append((file_entry.path, shot_name, dept_name, file_info))
                             
     except Exception as e:
-        print(f"⚠️ Error collecting files with filters: {e}")
+        if DEBUG: print(f"⚠️ Error collecting files with filters: {e}")
     
     return results
 
@@ -792,7 +802,7 @@ def find_thumbnail(file_path, department_path):
                 return thumb_path
                 
     except Exception as e:
-        print(f"⚠️ Error finding thumbnail for {file_path}: {e}")
+        if DEBUG: print(f"⚠️ Error finding thumbnail for {file_path}: {e}")
     
     return None
 
