@@ -127,7 +127,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             title_layout.addWidget(self.version_label)
         except Exception as e:
             print(f"⚠️ Error loading version: {e}")
-            self.version_label = QtWidgets.QLabel("v2.0.0")
+            self.version_label = QtWidgets.QLabel("v2.2.0")
             self.version_label.setStyleSheet("QLabel { color: #888; font-size: 12px; }")
             title_layout.addWidget(self.version_label)
         

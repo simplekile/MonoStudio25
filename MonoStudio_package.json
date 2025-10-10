@@ -1,20 +1,15 @@
 {
 "env":[
 {"MONO_STUDIO" : "D:/Dropbox/Stock/Plugin/HOU/MonoStudio25"},
-{"MONO_VERSION" : "2.0.0"},
+{"MONO_VERSION" : "2.2.0"},
 {"HOUDINI_PATH" : "$MONO_STUDIO;&"},
 {"PYTHONPATH" : "$MONO_STUDIO/python;&"},
 {"HOUDINI_OTLSCAN_PATH" : "$MONO_STUDIO/otls;&"},
 {"HOUDINI_TOOLBAR_PATH" : "$MONO_STUDIO/toolbar;&"},
 {"HOUDINI_MENU_PATH" : "$MONO_STUDIO/menus;&"},
-{"HOUDINI_SHELF_PATH" : "$MONO_STUDIO/shelves;&"},
-{"HOUDINI_SCRIPT_PATH" : "$MONO_STUDIO/scripts;&"},
-{"HOUDINI_PYTHON_PATH" : "$MONO_STUDIO/python;&"}
+{"HOUDINI_SHELF_PATH" : "$MONO_STUDIO/shelves;&"}
 ],
 "path":[
 "$MONO_STUDIO/python"
-],
-"script":[
-"$MONO_STUDIO/scripts/startup.py"
 ]
 }

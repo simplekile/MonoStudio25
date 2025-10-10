@@ -526,6 +526,6 @@ Compatible with Houdini 21+ (PySide6)
 ---
 
 **Last Updated**: 2024-12-19
-**Version**: 2.0.0
+**Version**: 2.2.0
 **Compatibility**: Houdini 21+ (PySide6)
 **Status**: Production Ready

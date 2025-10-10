@@ -184,7 +184,7 @@ __all__ = [
 # Auto-initialize when package loads
 def initialize():
     """Initialize Mono Studio tools"""
-    print("🎬 Mono Studio v2.0.0 - Initializing...")
+    print("🎬 Mono Studio v2.2.0 - Initializing...")
     
     try:
         # Show MiniBar instead of just creating wrapper

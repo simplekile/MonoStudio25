@@ -3,7 +3,7 @@ Mono Studio Tools Package
 Professional Houdini production tools suite
 """
 
-__version__ = "2.0.0"
+__version__ = "2.2.0"
 __author__ = "DTA Studio"
 
 # Re-export Qt shim for convenient access (PySide6 preferred, PySide2 fallback)
@@ -47,50 +47,14 @@ __all__ = [
     'setup_file_manager_tools',
     'MonoUtils',
     'QtCore', 'QtGui', 'QtWidgets', 'API',
-    'test_pyside6', 'verify_pyside6', 'demo_texture_search_replace',
-    'initialize'
+    'test_pyside6', 'verify_pyside6', 'demo_texture_search_replace'
 ]
 
-# Auto-initialize when package loads
-def initialize():
-    """Initialize Mono Studio tools"""
-    print("🎬 Mono Studio v2.0.0 - Initializing...")
-    
-    try:
-        # Show MiniBar instead of just creating wrapper
-        minibar = show_mono_minibar()
-        
-        if minibar:
-            print("✅ Mono Studio MiniBar loaded successfully!")
-            print("💡 Tips:")
-            print("   • Click shot name to open file in Houdini")
-            print("   • Click ⚡ button for full File Manager")
-            print("   • Right-click handle for options")
-            return True
-        else:
-            print("⚠️ MiniBar not loaded - check Houdini environment")
-            return False
-        
-    except Exception as e:
-        print(f"❌ Failed to initialize Mono Studio: {e}")
-        # Fallback to wrapper approach
-        try:
-            file_manager = FileManagerWrapper()
-            file_manager.show_minibar()
-            print("✅ Fallback mode: Using compatibility wrapper")
-            return True
-        except:
-            return False
-
-# Convenience functions for manual usage
+# Convenience functions for quick access
 def open_file_manager():
     """Open full File Manager dialog"""
     return show_mono_file_manager()
 
 def open_minibar():
-    """Open MiniBar (if not already shown)"""
+    """Open MiniBar"""
     return show_mono_minibar()
-
-# Auto-run disabled - using startup script instead
-# Use: import mono_tools; mono_tools.initialize() to run manually
-# Or use: mono_tools.open_minibar() for quick access

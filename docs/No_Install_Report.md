@@ -87,7 +87,7 @@ MonoStudio25/
 {
 "env":[
 {"MONO_STUDIO" : "."},
-{"MONO_VERSION" : "2.0.0"},
+{"MONO_VERSION" : "2.2.0"},
 {"HOUDINI_PATH" : "$MONO_STUDIO;&"},
 {"PYTHONPATH" : "$MONO_STUDIO/python;&"},
 {"HOUDINI_OTLSCAN_PATH" : "$MONO_STUDIO/otls;&"},
