@@ -614,7 +614,7 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
         if config and 'standard_departments' in config:
             dept_map = {d['id']: d for d in config['standard_departments']}
         
-        # Create all department folders (with software subfolders + publish if configured)
+        # Create all department folders (with software subfolders + subdepartments + publish)
         created_structure = []
         for dept_id in departments:
             dept_path = os.path.join(asset_folder, dept_id)
@@ -623,6 +623,7 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
             dept_config = dept_map.get(dept_id, {})
             software_folders = dept_config.get('software_folders', [])
             create_publish = dept_config.get('create_publish', False)
+            subdepartments = dept_config.get('subdepartments', [])
             
             if software_folders:
                 # Create software subfolders
@@ -630,6 +631,19 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
                     software_path = os.path.join(dept_path, software)
                     os.makedirs(software_path, exist_ok=True)
                     created_structure.append(f"{dept_id}/{software}")
+                
+                # Create subdepartments
+                for subdept in subdepartments:
+                    subdept_id = subdept['id']
+                    subdept_path = os.path.join(dept_path, subdept_id)
+                    os.makedirs(subdept_path, exist_ok=True)
+                    created_structure.append(f"{dept_id}/{subdept_id}")
+                    
+                    # Subdepartment publish folder
+                    if subdept.get('create_publish', False):
+                        subdept_publish = os.path.join(subdept_path, "_publish")
+                        os.makedirs(subdept_publish, exist_ok=True)
+                        created_structure.append(f"{dept_id}/{subdept_id}/_publish")
                 
                 # Also create publish folder at department level
                 if create_publish:
@@ -640,6 +654,19 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
                 # Just create department folder
                 os.makedirs(dept_path, exist_ok=True)
                 created_structure.append(dept_id)
+                
+                # Create subdepartments
+                for subdept in subdepartments:
+                    subdept_id = subdept['id']
+                    subdept_path = os.path.join(dept_path, subdept_id)
+                    os.makedirs(subdept_path, exist_ok=True)
+                    created_structure.append(f"{dept_id}/{subdept_id}")
+                    
+                    # Subdepartment publish folder
+                    if subdept.get('create_publish', False):
+                        subdept_publish = os.path.join(subdept_path, "_publish")
+                        os.makedirs(subdept_publish, exist_ok=True)
+                        created_structure.append(f"{dept_id}/{subdept_id}/_publish")
                 
                 # Create publish subfolder if configured
                 if create_publish:
