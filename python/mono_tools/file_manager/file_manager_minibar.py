@@ -411,15 +411,18 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             QMenu::item { padding:8px 16px; }
             QMenu::item:selected { background:#3d5a99; }
         """)
+        # File operations
         new_action = menu.addAction("📄 New File..."); new_action.triggered.connect(self._new_file)
         new_folder_action = menu.addAction("📁 New Folder..."); new_folder_action.triggered.connect(self._new_folder)
         save_ver_action = menu.addAction("💾 Save Version..."); save_ver_action.triggered.connect(self._save_version)
         menu.addSeparator()
-        reload_action = menu.addAction("🔄 Reload Scene"); reload_action.triggered.connect(self._reload_scene)
-        restart_action = menu.addAction("🔃 Restart Houdini"); restart_action.triggered.connect(self._restart_houdini)
-        menu.addSeparator()
+        # Folder operations
         location_action = menu.addAction("📂 Open File Location"); location_action.triggered.connect(self._open_current_file_location)
         render_action = menu.addAction("🎬 Open Render Folder"); render_action.triggered.connect(self._open_render_folder)
+        menu.addSeparator()
+        # System operations (at bottom)
+        reload_action = menu.addAction("🔄 Reload Scene"); reload_action.triggered.connect(self._reload_scene)
+        restart_action = menu.addAction("🔃 Restart Houdini"); restart_action.triggered.connect(self._restart_houdini)
         menu_pos = self.mapToGlobal(self.btn_quick_menu.geometry().bottomLeft()); menu.exec_(menu_pos)
 
     # ---- File change monitoring ----
@@ -1502,7 +1505,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 debug_print(f"🔍 Button size: {base_size} → {scaled_size}")
                 
                 self.btn_quick_menu.setFixedSize(scaled_size, scaled_size)
-                self.btn_save_version.setFixedSize(scaled_size, scaled_size)
                 self.btn_settings.setFixedSize(int(32 * scale_factor), scaled_size)
                 
                 # Scale type and dept buttons
