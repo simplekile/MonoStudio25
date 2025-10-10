@@ -582,11 +582,10 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             self.move(20, 80)
 
     def _snap_top_right(self):
-        mw=hou.qt.mainWindow();
-        if not mw: return
-        geo=mw.geometry(); self.adjustSize()
-        new_x = geo.x() + int(0.915 * geo.width()) - self.width(); new_y = geo.y() + int(0.000 * geo.height())
-        self.move(new_x, new_y)
+        """Snap to default position (same as _get_default_position)"""
+        # Use same logic as default position for consistency
+        default_x, default_y = self._get_default_position()
+        self.move(default_x, default_y)
         self._save_relative_position()
 
     def _update_lock_visual_feedback(self):
