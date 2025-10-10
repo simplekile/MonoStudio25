@@ -396,10 +396,24 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         
         layout.addWidget(preview_group)
         
-        # Load and show default template
-        self._load_template_preview(0)
+        # Load saved template or default
+        config = load_department_config()
+        active_template = config.get('active_template', 0) if config else 0
+        self.template_combo.setCurrentIndex(active_template)
+        self._load_template_preview(active_template)
         
         layout.addStretch()
+        
+        # Save/Apply buttons
+        action_layout = QtWidgets.QHBoxLayout()
+        action_layout.addStretch()
+        
+        apply_btn = QtWidgets.QPushButton("💾 Apply Template")
+        apply_btn.setToolTip("Save and apply selected template as default structure")
+        apply_btn.clicked.connect(self._apply_template)
+        action_layout.addWidget(apply_btn)
+        
+        layout.addLayout(action_layout)
         
         return tab
     
@@ -523,6 +537,68 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             # Reload preview
             self.template_combo.setCurrentIndex(2)  # Set to Custom
             self._load_template_preview(2)
+    
+    def _apply_template(self):
+        """Apply selected template as default structure"""
+        template_index = self.template_combo.currentIndex()
+        template_name = self.template_combo.currentText()
+        
+        # Load current config
+        config = load_department_config()
+        if not config:
+            config = {}
+        
+        # Set active template
+        config['active_template'] = template_index
+        
+        # If Simple template selected, update departments
+        if template_index == 1:  # Simple
+            config['standard_departments'] = [
+                {
+                    "id": "01_modeling",
+                    "name": "Modeling",
+                    "icon": "🎨",
+                    "description": "Geometry and modeling work",
+                    "software_folders": ["houdini", "maya", "zbrush"],
+                    "create_publish": True
+                },
+                {
+                    "id": "02_rigging",
+                    "name": "Rigging",
+                    "icon": "🦴",
+                    "description": "Character rigging and setup",
+                    "software_folders": [],
+                    "create_publish": True
+                },
+                {
+                    "id": "03_surfacing",
+                    "name": "Surfacing",
+                    "icon": "🎭",
+                    "description": "Materials and texturing",
+                    "software_folders": ["houdini", "substance", "mari"],
+                    "create_publish": True
+                }
+            ]
+        # Default and Custom keep current departments
+        
+        config['version'] = "2.0"
+        config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+        
+        # Save
+        success, message = save_department_config(config)
+        
+        if success:
+            hou.ui.displayMessage(
+                f"Template applied!\n\n{template_name}\n\nNew folders will use this structure.",
+                severity=hou.severityType.Message,
+                title="Template Saved"
+            )
+        else:
+            hou.ui.displayMessage(
+                f"Failed to save:\n{message}",
+                severity=hou.severityType.Error,
+                title="Save Error"
+            )
     
     # ================ Department Editor Methods ================
     
