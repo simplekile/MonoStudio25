@@ -1,99 +1,55 @@
 """
 Mono Studio Package Startup
-This script runs when the package is loaded by Houdini
+Simple and clean startup for Houdini package
 """
 
-import hou
+# Debug: Write to file to verify script execution
 import os
-import sys
+debug_file = os.path.join(os.path.dirname(__file__), '..', 'startup_debug.log')
+with open(debug_file, 'w', encoding='utf-8') as f:
+    f.write("Startup script executed!\n")
+    import sys
+    f.write(f"Python: {sys.version}\n")
+    f.write(f"Script: {__file__}\n")
 
-def package_startup():
-    """Package startup function called by Houdini"""
+import hou
+from mono_tools.qt import QtCore
+
+print("🚀 Mono Studio v2.2.0 - Loading...")
+print(f"📍 Script path: {__file__}")
+
+# Setup menus
+try:
+    from mono_tools import (
+        setup_file_manager_tools, 
+        setup_material_loader_tools, 
+        setup_texture_tools,
+        show_mono_minibar
+    )
+    
+    setup_file_manager_tools()
+    setup_material_loader_tools()
+    setup_texture_tools()
+    print("✅ Menus loaded!")
+    
+except Exception as e:
+    print(f"❌ Menu setup failed: {e}")
+    import traceback
+    traceback.print_exc()
+
+# Auto-show MiniBar after UI ready (with delay to ensure Houdini UI is loaded)
+def delayed_minibar_show():
     try:
-        print("🔍 package_startup() called")
-        
-        # Get version info
-        try:
-            from mono_tools.version import get_version_string
-            version_text = get_version_string()
-            print(f"🔍 Version loaded: {version_text}")
-        except Exception as e:
-            print(f"🔍 Version load failed: {e}")
-            version_text = "v2.0.0"
-        
-        print(f"🎬 Mono Studio {version_text} - Package Loading...")
-        
-        # Add python path if not already added
-        mono_studio_path = os.environ.get('MONO_STUDIO')
-        print(f"🔍 MONO_STUDIO env: {mono_studio_path}")
-        
-        if mono_studio_path:
-            python_path = os.path.join(mono_studio_path, 'python')
-            print(f"🔍 Python path: {python_path}")
-            if python_path not in sys.path:
-                sys.path.insert(0, python_path)
-                print(f"📁 Added python path: {python_path}")
-            else:
-                print(f"🔍 Python path already in sys.path")
+        minibar = show_mono_minibar()
+        if minibar:
+            print("✅ MiniBar ready!")
+            print("🎉 Mono Studio ready!")
         else:
-            print("⚠️ MONO_STUDIO environment variable not set")
-        
-        print("🔧 Setting up tools...")
-        
-        # Import and setup tools
-        try:
-            from mono_tools import setup_file_manager_tools, setup_material_loader_tools, setup_texture_tools
-            from mono_tools import show_mono_minibar
-            print("🔍 Imports successful")
-        except Exception as e:
-            print(f"❌ Import failed: {e}")
-            return False
-        
-        # Setup all tools
-        try:
-            setup_file_manager_tools()
-            print("🔍 File manager tools setup")
-        except Exception as e:
-            print(f"❌ File manager setup failed: {e}")
-        
-        try:
-            setup_material_loader_tools()
-            print("🔍 Material loader tools setup")
-        except Exception as e:
-            print(f"❌ Material loader setup failed: {e}")
-        
-        try:
-            setup_texture_tools()
-            print("🔍 Texture tools setup")
-        except Exception as e:
-            print(f"❌ Texture tools setup failed: {e}")
-        
-        print("✅ All tools setup complete!")
-        
-        # Show MiniBar (always auto-start)
-        try:
-            print("🔍 Creating MiniBar...")
-            minibar = show_mono_minibar()
-            if minibar:
-                print("✅ MiniBar auto-started successfully!")
-                print(f"🔍 MiniBar type: {type(minibar)}")
-                print(f"🔍 MiniBar visible: {minibar.isVisible()}")
-            else:
-                print("⚠️ MiniBar creation returned None")
-        except Exception as e:
-            print(f"⚠️ MiniBar error: {e}")
-            import traceback
-            traceback.print_exc()
-        
-        return True
-        
+            print("⚠️ MiniBar creation failed")
     except Exception as e:
-        print(f"❌ Mono Studio startup failed: {e}")
-        return False
+        print(f"❌ MiniBar error: {e}")
+        import traceback
+        traceback.print_exc()
 
-# This function will be called by Houdini when the package loads
-print("🚀 Mono Studio startup script loaded!")
-print(f"🔍 Script file: {__file__}")
-print(f"🔍 Working directory: {os.getcwd()}")
-print(f"🔍 Python path: {sys.path[:3]}...")
-package_startup()
+# Delay 500ms để Houdini UI load xong
+QtCore.QTimer.singleShot(500, delayed_minibar_show)
