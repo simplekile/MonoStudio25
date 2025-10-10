@@ -14,6 +14,8 @@ from .file_manager_helpers import (
     human_size,
     open_in_explorer,
     list_projects,
+    load_department_config,
+    save_department_config,
     ORG, APP
 )
 
@@ -88,6 +90,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         self.publish_mode = False
         
         self._build_ui()
+        self._apply_styling()
         self._load_settings()
         
         # Load scale setting
@@ -100,7 +103,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             QtCore.QTimer.singleShot(100, self._scan_project)
     
     def _build_ui(self):
-        """Build the UI"""
+        """Build the simplified UI with tabs"""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
@@ -117,7 +120,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         
         title_layout.addStretch()
         
-        # Version info (use package version to avoid git subprocess calls)
+        # Version info
         try:
             from mono_tools import __version__
             self.version_label = QtWidgets.QLabel(f"v{__version__}")
@@ -131,6 +134,45 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             title_layout.addWidget(self.version_label)
         
         layout.addLayout(title_layout)
+        
+        # Main tabs (cleaner organization)
+        self.main_tabs = QtWidgets.QTabWidget()
+        self.main_tabs.setTabPosition(QtWidgets.QTabWidget.North)
+        
+        # Tab 1: Project & Files
+        self.project_tab = self._build_project_tab()
+        self.main_tabs.addTab(self.project_tab, "📁 Project & Files")
+        
+        # Tab 2: Department Structure
+        self.dept_tab = self._build_department_tab()
+        self.main_tabs.addTab(self.dept_tab, "🏗️ Department Structure")
+        
+        # Tab 3: UI Settings
+        self.ui_tab = self._build_ui_settings_tab()
+        self.main_tabs.addTab(self.ui_tab, "🎨 UI Settings")
+        
+        layout.addWidget(self.main_tabs)
+        
+        # Status bar
+        self.status_bar = QtWidgets.QLabel("Ready")
+        self.status_bar.setStyleSheet("QLabel { background: #2a2a2a; color: #e5e5e5; padding: 4px 8px; border-radius: 4px; }")
+        layout.addWidget(self.status_bar)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.close_btn = QtWidgets.QPushButton("Close")
+        self.close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(self.close_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def _build_project_tab(self):
+        """Build Project & Files tab"""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # Project settings
         project_group = QtWidgets.QGroupBox("Project Settings")
@@ -159,16 +201,100 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         
         layout.addWidget(project_group)
         
+        # File preview tabs
+        self.tabs_widget = QtWidgets.QTabWidget()
+        self.tabs_widget.setTabPosition(QtWidgets.QTabWidget.North)
+        layout.addWidget(self.tabs_widget)
+        
+        return tab
+    
+    def _build_department_tab(self):
+        """Build Department Structure editor tab"""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Description
+        desc = QtWidgets.QLabel(
+            "Configure standard department folders for new assets.\n"
+            "These folders will be created automatically when using 'New Folder' feature."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("QLabel { color: #aaa; padding: 8px; background: #2a2a2a; border-radius: 4px; }")
+        layout.addWidget(desc)
+        
+        # Department list
+        dept_group = QtWidgets.QGroupBox("Standard Departments")
+        dept_layout = QtWidgets.QVBoxLayout(dept_group)
+        
+        # List widget
+        self.dept_list = QtWidgets.QListWidget()
+        self.dept_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        dept_layout.addWidget(self.dept_list)
+        
+        # Buttons
+        btn_layout = QtWidgets.QHBoxLayout()
+        
+        add_btn = QtWidgets.QPushButton("➕ Add Department")
+        add_btn.clicked.connect(self._add_department)
+        btn_layout.addWidget(add_btn)
+        
+        edit_btn = QtWidgets.QPushButton("✏️ Edit")
+        edit_btn.clicked.connect(self._edit_department)
+        btn_layout.addWidget(edit_btn)
+        
+        remove_btn = QtWidgets.QPushButton("🗑️ Remove")
+        remove_btn.clicked.connect(self._remove_department)
+        btn_layout.addWidget(remove_btn)
+        
+        btn_layout.addStretch()
+        
+        move_up_btn = QtWidgets.QPushButton("⬆️ Move Up")
+        move_up_btn.clicked.connect(self._move_department_up)
+        btn_layout.addWidget(move_up_btn)
+        
+        move_down_btn = QtWidgets.QPushButton("⬇️ Move Down")
+        move_down_btn.clicked.connect(self._move_department_down)
+        btn_layout.addWidget(move_down_btn)
+        
+        dept_layout.addLayout(btn_layout)
+        layout.addWidget(dept_group)
+        
+        # Actions
+        action_layout = QtWidgets.QHBoxLayout()
+        action_layout.addStretch()
+        
+        save_btn = QtWidgets.QPushButton("💾 Save Configuration")
+        save_btn.clicked.connect(self._save_department_config)
+        action_layout.addWidget(save_btn)
+        
+        reset_btn = QtWidgets.QPushButton("🔄 Reset to Defaults")
+        reset_btn.clicked.connect(self._reset_department_config)
+        action_layout.addWidget(reset_btn)
+        
+        layout.addLayout(action_layout)
+        
+        # Load departments
+        self._load_departments()
+        
+        return tab
+    
+    def _build_ui_settings_tab(self):
+        """Build UI Settings tab"""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(8, 8, 8, 8)
+        
         # UI Scale settings
-        scale_group = QtWidgets.QGroupBox("UI Scale")
+        scale_group = QtWidgets.QGroupBox("MiniBar Scale")
         scale_layout = QtWidgets.QGridLayout(scale_group)
         
         # Scale slider
         scale_layout.addWidget(QtWidgets.QLabel("Scale:"), 0, 0)
         self.scale_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self.scale_slider.setMinimum(50)  # 50%
-        self.scale_slider.setMaximum(200)  # 200%
-        self.scale_slider.setValue(100)  # 100% default
+        self.scale_slider.setMinimum(50)
+        self.scale_slider.setMaximum(200)
+        self.scale_slider.setValue(100)
         self.scale_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.scale_slider.setTickInterval(25)
         self.scale_slider.valueChanged.connect(self._on_scale_changed)
@@ -179,39 +305,211 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         self.scale_label.setAlignment(QtCore.Qt.AlignCenter)
         scale_layout.addWidget(self.scale_label, 0, 2)
         
-        # Apply scale button
-        self.apply_scale_btn = QtWidgets.QPushButton("Apply Scale")
-        self.apply_scale_btn.clicked.connect(self._apply_scale)
-        scale_layout.addWidget(self.apply_scale_btn, 0, 3)
+        # Apply/Reset buttons
+        apply_btn = QtWidgets.QPushButton("Apply")
+        apply_btn.clicked.connect(self._apply_scale)
+        scale_layout.addWidget(apply_btn, 0, 3)
         
-        # Reset scale button
-        self.reset_scale_btn = QtWidgets.QPushButton("Reset")
-        self.reset_scale_btn.clicked.connect(self._reset_scale)
-        scale_layout.addWidget(self.reset_scale_btn, 0, 4)
+        reset_btn = QtWidgets.QPushButton("Reset")
+        reset_btn.clicked.connect(self._reset_scale)
+        scale_layout.addWidget(reset_btn, 0, 4)
         
         layout.addWidget(scale_group)
+        layout.addStretch()
         
-        # Tabs widget
-        self.tabs_widget = QtWidgets.QTabWidget()
-        self.tabs_widget.setTabPosition(QtWidgets.QTabWidget.North)
-        layout.addWidget(self.tabs_widget)
+        return tab
+    
+    # ================ Department Editor Methods ================
+    
+    def _load_departments(self):
+        """Load departments from config file"""
+        self.dept_list.clear()
         
-        # Status bar
-        self.status_bar = QtWidgets.QLabel("Ready")
-        self.status_bar.setStyleSheet("QLabel { background: #2a2a2a; color: #e5e5e5; padding: 4px 8px; border-radius: 4px; }")
-        layout.addWidget(self.status_bar)
+        config = load_department_config()
+        if config and 'standard_departments' in config:
+            for dept in config['standard_departments']:
+                dept_id = dept.get('id', '')
+                dept_name = dept.get('name', '')
+                icon = dept.get('icon', '📁')
+                desc = dept.get('description', '')
+                
+                item = QtWidgets.QListWidgetItem(f"{icon} {dept_id} - {dept_name}")
+                item.setData(QtCore.Qt.UserRole, dept)  # Store full dept data
+                item.setToolTip(desc)
+                self.dept_list.addItem(item)
+    
+    def _add_department(self):
+        """Add new department"""
+        # Ask for department ID
+        result = hou.ui.readInput(
+            "Enter department ID (e.g., 08_cfx):",
+            buttons=("Next", "Cancel"),
+            title="Add Department"
+        )
         
-        # Buttons
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
+        if result[0] != 0:
+            return
         
-        self.close_btn = QtWidgets.QPushButton("Close")
-        self.close_btn.clicked.connect(self.accept)
-        button_layout.addWidget(self.close_btn)
+        dept_id = result[1].strip()
+        if not dept_id:
+            return
         
-        layout.addLayout(button_layout)
+        # Ask for department name
+        result = hou.ui.readInput(
+            f"Department ID: {dept_id}\n\nEnter department name (e.g., CFX):",
+            buttons=("Next", "Cancel"),
+            title="Add Department"
+        )
         
-        # Apply styling
+        if result[0] != 0:
+            return
+        
+        dept_name = result[1].strip()
+        if not dept_name:
+            dept_name = dept_id
+        
+        # Ask for description
+        result = hou.ui.readInput(
+            f"Department: {dept_id} - {dept_name}\n\nEnter description (optional):",
+            buttons=("Add", "Cancel"),
+            title="Add Department"
+        )
+        
+        if result[0] != 0:
+            return
+        
+        description = result[1].strip()
+        
+        # Add to list
+        new_dept = {
+            "id": dept_id,
+            "name": dept_name,
+            "icon": "📁",
+            "description": description
+        }
+        
+        item = QtWidgets.QListWidgetItem(f"📁 {dept_id} - {dept_name}")
+        item.setData(QtCore.Qt.UserRole, new_dept)
+        item.setToolTip(description)
+        self.dept_list.addItem(item)
+    
+    def _edit_department(self):
+        """Edit selected department"""
+        current_item = self.dept_list.currentItem()
+        if not current_item:
+            hou.ui.displayMessage("Please select a department to edit.", severity=hou.severityType.Warning)
+            return
+        
+        dept = current_item.data(QtCore.Qt.UserRole)
+        
+        # Edit name
+        result = hou.ui.readInput(
+            f"Department ID: {dept['id']}\n\nEnter new name:",
+            buttons=("Save", "Cancel"),
+            initial_contents=dept.get('name', ''),
+            title="Edit Department"
+        )
+        
+        if result[0] != 0:
+            return
+        
+        dept['name'] = result[1].strip()
+        
+        # Update display
+        current_item.setText(f"{dept.get('icon', '📁')} {dept['id']} - {dept['name']}")
+        current_item.setData(QtCore.Qt.UserRole, dept)
+    
+    def _remove_department(self):
+        """Remove selected department"""
+        current_row = self.dept_list.currentRow()
+        if current_row < 0:
+            hou.ui.displayMessage("Please select a department to remove.", severity=hou.severityType.Warning)
+            return
+        
+        current_item = self.dept_list.currentItem()
+        dept = current_item.data(QtCore.Qt.UserRole)
+        
+        result = hou.ui.displayMessage(
+            f"Remove department?\n\n{dept['id']} - {dept['name']}",
+            buttons=("Remove", "Cancel"),
+            severity=hou.severityType.Warning
+        )
+        
+        if result == 0:
+            self.dept_list.takeItem(current_row)
+    
+    def _move_department_up(self):
+        """Move selected department up in list"""
+        current_row = self.dept_list.currentRow()
+        if current_row > 0:
+            item = self.dept_list.takeItem(current_row)
+            self.dept_list.insertItem(current_row - 1, item)
+            self.dept_list.setCurrentRow(current_row - 1)
+    
+    def _move_department_down(self):
+        """Move selected department down in list"""
+        current_row = self.dept_list.currentRow()
+        if current_row < self.dept_list.count() - 1 and current_row >= 0:
+            item = self.dept_list.takeItem(current_row)
+            self.dept_list.insertItem(current_row + 1, item)
+            self.dept_list.setCurrentRow(current_row + 1)
+    
+    def _save_department_config(self):
+        """Save department configuration to file"""
+        try:
+            # Collect all departments from list
+            departments = []
+            for i in range(self.dept_list.count()):
+                item = self.dept_list.item(i)
+                dept = item.data(QtCore.Qt.UserRole)
+                departments.append(dept)
+            
+            # Build config
+            config = {
+                "standard_departments": departments,
+                "version": "1.0",
+                "last_modified": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            # Save to file
+            success, message = save_department_config(config)
+            
+            if success:
+                hou.ui.displayMessage(
+                    f"Configuration saved!\n\n{len(departments)} departments saved.",
+                    severity=hou.severityType.Message,
+                    title="Save Successful"
+                )
+                self.status_bar.setText(f"Saved {len(departments)} departments")
+            else:
+                hou.ui.displayMessage(
+                    message,
+                    severity=hou.severityType.Error,
+                    title="Save Failed"
+                )
+        
+        except Exception as e:
+            hou.ui.displayMessage(
+                f"Failed to save configuration:\n{str(e)}",
+                severity=hou.severityType.Error,
+                title="Save Error"
+            )
+    
+    def _reset_department_config(self):
+        """Reset to default departments"""
+        result = hou.ui.displayMessage(
+            "Reset to default department structure?\n\nThis will reload the default 7 departments.",
+            buttons=("Reset", "Cancel"),
+            severity=hou.severityType.Warning
+        )
+        
+        if result == 0:
+            self._load_departments()
+    
+    # ================  End Department Methods ================
+    
+    def _apply_styling(self):
+        """Apply styling to dialog"""
         self.setStyleSheet("""
             QDialog { background: #232323; color: #e5e5e5; }
             QGroupBox { 
