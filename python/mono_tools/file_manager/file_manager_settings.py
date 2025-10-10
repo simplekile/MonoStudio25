@@ -27,18 +27,22 @@ class SmartLineEdit(QtWidgets.QLineEdit):
         super().__init__(parent)
         self.suggestions_dict = suggestions_dict or {}
         self.current_suggestion = ""
+        print(f"[SmartLineEdit] Initialized with {len(self.suggestions_dict)} suggestions")
         
     def keyPressEvent(self, event):
         """Handle Tab key to accept suggestion"""
-        if event.key() == QtCore.Qt.Key_Tab and self.current_suggestion:
-            # Accept suggestion
-            self.setText(self.current_suggestion)
-            self.current_suggestion = ""
-            self.update()
-            event.accept()
-            # Move to next field
-            self.focusNextChild()
-            return
+        if event.key() == QtCore.Qt.Key_Tab:
+            if self.current_suggestion:
+                # Accept suggestion - DO NOT call focusNextChild()
+                print(f"[SmartLineEdit] Tab pressed - accepting: {self.current_suggestion}")
+                self.setText(self.current_suggestion)
+                self.current_suggestion = ""
+                self.update()
+                event.accept()  # Block default Tab behavior
+                return
+            else:
+                # No suggestion - allow normal Tab behavior
+                print(f"[SmartLineEdit] Tab pressed - no suggestion, moving to next field")
         
         super().keyPressEvent(event)
         self._update_suggestion()
@@ -52,14 +56,18 @@ class SmartLineEdit(QtWidgets.QLineEdit):
             self.update()
             return
         
+        print(f"[SmartLineEdit] Searching for: '{text}'")
+        
         # Find best match from suggestions
         for key, value in self.suggestions_dict.items():
             if key.startswith(text):
                 self.current_suggestion = value
+                print(f"[SmartLineEdit] Found match: '{key}' -> '{value}'")
                 self.update()
                 return
         
         # No match found
+        print(f"[SmartLineEdit] No match found for: '{text}'")
         self.current_suggestion = ""
         self.update()
     
@@ -83,12 +91,20 @@ class SmartLineEdit(QtWidgets.QLineEdit):
                 # Get suggestion part (what's not typed yet)
                 suggestion_part = self.current_suggestion[len(typed):]
                 
+                print(f"[SmartLineEdit] Painting suggestion: typed='{typed}', suggestion='{self.current_suggestion}', part='{suggestion_part}'")
+                
+                # Get text margins for proper positioning
+                margins = self.textMargins()
+                left_margin = margins.left()
+                
                 # Draw gray text
                 painter.setPen(QtGui.QColor(128, 128, 128))  # Gray
                 
-                # Position: after typed text with padding
-                x = typed_width + 8  # 8px padding from left
+                # Position: after typed text with left margin
+                x = typed_width + left_margin + 5
                 y = (self.height() + fm.ascent() - fm.descent()) // 2
+                
+                print(f"[SmartLineEdit] Drawing at x={x}, y={y}, typed_width={typed_width}, left_margin={left_margin}")
                 
                 painter.drawText(x, y, suggestion_part)
                 painter.end()
