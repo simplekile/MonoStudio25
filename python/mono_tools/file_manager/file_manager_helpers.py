@@ -463,6 +463,75 @@ def clean_asset_name(asset_name):
             return asset_name[len(prefix):]
     return asset_name
 
+def get_standard_departments():
+    """Get standard department list for asset creation"""
+    return [
+        "01_modeling",
+        "02_rigging",
+        "03_surfacing",
+        "04_lookdev",
+        "05_groom",
+        "06_anim",
+        "07_turntable",
+    ]
+
+def create_asset_folder_structure(base_dir, type_name, asset_name, departments=None):
+    """
+    Create complete folder structure for a new asset
+    
+    Args:
+        base_dir: Project root directory
+        type_name: Asset type like "_characters"
+        asset_name: Asset name like "char_Cyborg" (with prefix) or "Cyborg" (auto-prefix)
+        departments: List of department folders to create (None = use standard)
+    
+    Returns:
+        (success, asset_folder_path, message)
+    """
+    try:
+        # Add prefix if not present
+        if not any(asset_name.lower().startswith(p) for p in ['char_', 'prop_', 'env_', 'veh_', 'fx_']):
+            # Guess prefix from type
+            if 'character' in type_name.lower():
+                asset_name = f"char_{asset_name}"
+            elif 'prop' in type_name.lower():
+                asset_name = f"prop_{asset_name}"
+            elif 'environment' in type_name.lower():
+                asset_name = f"env_{asset_name}"
+            elif 'vehicle' in type_name.lower():
+                asset_name = f"veh_{asset_name}"
+            elif 'fx' in type_name.lower() or 'effect' in type_name.lower():
+                asset_name = f"fx_{asset_name}"
+        
+        # Create asset base folder
+        asset_folder = os.path.join(base_dir, "01_assets", type_name, asset_name)
+        
+        if os.path.exists(asset_folder):
+            return False, asset_folder, f"Asset folder already exists:\n{asset_folder}"
+        
+        # Use standard departments if not specified
+        if not departments:
+            departments = get_standard_departments()
+        
+        # Create all department folders
+        created_folders = []
+        for dept in departments:
+            dept_path = os.path.join(asset_folder, dept)
+            os.makedirs(dept_path, exist_ok=True)
+            created_folders.append(dept)
+        
+        success_msg = f"Asset folder created successfully!\n\n"
+        success_msg += f"Asset: {asset_name}\n"
+        success_msg += f"Location: {asset_folder}\n\n"
+        success_msg += f"Departments created:\n"
+        for dept in created_folders:
+            success_msg += f"  • {dept}\n"
+        
+        return True, asset_folder, success_msg
+        
+    except Exception as e:
+        return False, "", f"Failed to create asset folder:\n{str(e)}"
+
 def generate_new_filename(type_name, asset_name, department, version="v001", ext=".hip"):
     """
     Generate filename in format: $type_$assetname_$department_$version.ext
