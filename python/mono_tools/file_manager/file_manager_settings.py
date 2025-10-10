@@ -353,8 +353,40 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         desc.setStyleSheet("QLabel { color: #aaa; padding: 8px; background: #2a2a2a; border-radius: 4px; }")
         layout.addWidget(desc)
         
+        # Asset Types section
+        asset_type_group = QtWidgets.QGroupBox("📦 Asset Types")
+        asset_type_layout = QtWidgets.QVBoxLayout(asset_type_group)
+        
+        # List widget for asset types
+        self.asset_type_list = QtWidgets.QListWidget()
+        self.asset_type_list.setMaximumHeight(120)
+        asset_type_layout.addWidget(self.asset_type_list)
+        
+        # Buttons for asset types
+        asset_btn_layout = QtWidgets.QHBoxLayout()
+        
+        add_type_btn = QtWidgets.QPushButton("➕ Add Type")
+        add_type_btn.clicked.connect(self._add_asset_type)
+        asset_btn_layout.addWidget(add_type_btn)
+        
+        edit_type_btn = QtWidgets.QPushButton("✏️ Edit")
+        edit_type_btn.clicked.connect(self._edit_asset_type)
+        asset_btn_layout.addWidget(edit_type_btn)
+        
+        remove_type_btn = QtWidgets.QPushButton("🗑️ Remove")
+        remove_type_btn.clicked.connect(self._remove_asset_type)
+        asset_btn_layout.addWidget(remove_type_btn)
+        
+        asset_btn_layout.addStretch()
+        
+        asset_type_layout.addLayout(asset_btn_layout)
+        layout.addWidget(asset_type_group)
+        
+        # Load asset types
+        self._load_asset_types()
+        
         # Template selection
-        template_group = QtWidgets.QGroupBox("📋 Template")
+        template_group = QtWidgets.QGroupBox("📋 Folder Template")
         template_layout = QtWidgets.QHBoxLayout(template_group)
         
         template_layout.addWidget(QtWidgets.QLabel("Select Template:"))
@@ -457,6 +489,160 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         
         return tab
     
+    # ================ Asset Type Methods ================
+    
+    def _load_asset_types(self):
+        """Load asset types from config"""
+        self.asset_type_list.clear()
+        
+        config = load_department_config()
+        if config and 'asset_types' in config:
+            for atype in config['asset_types']:
+                type_id = atype.get('id', '')
+                type_name = atype.get('name', '')
+                prefix = atype.get('prefix', '')
+                icon = atype.get('icon', '📁')
+                
+                item = QtWidgets.QListWidgetItem(f"{icon} {type_id} → {prefix}... ({type_name})")
+                item.setData(QtCore.Qt.UserRole, atype)  # Store full type data
+                item.setToolTip(f"Folder: {type_id}\nPrefix: {prefix}\nName: {type_name}")
+                self.asset_type_list.addItem(item)
+    
+    def _add_asset_type(self):
+        """Add new asset type"""
+        result = hou.ui.readInput(
+            "Enter asset type folder name (e.g., _vehicles):",
+            buttons=("Next", "Cancel"),
+            title="Add Asset Type"
+        )
+        
+        if result[0] != 0:
+            return
+        
+        type_id = result[1].strip()
+        if not type_id:
+            return
+        
+        # Ask for display name
+        result = hou.ui.readInput(
+            f"Folder: {type_id}\n\nEnter display name (e.g., Vehicles):",
+            buttons=("Next", "Cancel"),
+            title="Add Asset Type"
+        )
+        
+        if result[0] != 0:
+            return
+        
+        type_name = result[1].strip()
+        
+        # Ask for prefix
+        result = hou.ui.readInput(
+            f"Folder: {type_id}\nName: {type_name}\n\nEnter prefix (e.g., veh_):",
+            buttons=("Save", "Cancel"),
+            title="Add Asset Type"
+        )
+        
+        if result[0] != 0:
+            return
+        
+        prefix = result[1].strip()
+        
+        # Add to config
+        config = load_department_config()
+        if not config:
+            config = {}
+        if 'asset_types' not in config:
+            config['asset_types'] = []
+        
+        new_type = {
+            "id": type_id,
+            "name": type_name,
+            "prefix": prefix,
+            "icon": "📁",
+            "description": f"{type_name} assets"
+        }
+        
+        config['asset_types'].append(new_type)
+        config['version'] = "2.0"
+        config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+        
+        success, message = save_department_config(config)
+        if success:
+            self._load_asset_types()
+            hou.ui.displayMessage(f"Asset type added!\n\n{type_id} ({type_name})", severity=hou.severityType.Message)
+        else:
+            hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+    
+    def _edit_asset_type(self):
+        """Edit selected asset type"""
+        current_item = self.asset_type_list.currentItem()
+        if not current_item:
+            hou.ui.displayMessage("Please select an asset type to edit.", severity=hou.severityType.Warning)
+            return
+        
+        atype = current_item.data(QtCore.Qt.UserRole)
+        
+        # Edit prefix
+        result = hou.ui.readInput(
+            f"Asset Type: {atype['id']} ({atype['name']})\n\nEnter new prefix:",
+            buttons=("Save", "Cancel"),
+            initial_contents=atype.get('prefix', ''),
+            title="Edit Asset Type"
+        )
+        
+        if result[0] != 0:
+            return
+        
+        new_prefix = result[1].strip()
+        
+        # Update config
+        config = load_department_config()
+        if config and 'asset_types' in config:
+            for at in config['asset_types']:
+                if at['id'] == atype['id']:
+                    at['prefix'] = new_prefix
+                    break
+            
+            config['version'] = "2.0"
+            config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+            
+            success, message = save_department_config(config)
+            if success:
+                self._load_asset_types()
+                hou.ui.displayMessage(f"Asset type updated!", severity=hou.severityType.Message)
+            else:
+                hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+    
+    def _remove_asset_type(self):
+        """Remove selected asset type"""
+        current_row = self.asset_type_list.currentRow()
+        if current_row < 0:
+            hou.ui.displayMessage("Please select an asset type to remove.", severity=hou.severityType.Warning)
+            return
+        
+        current_item = self.asset_type_list.currentItem()
+        atype = current_item.data(QtCore.Qt.UserRole)
+        
+        result = hou.ui.displayMessage(
+            f"Remove asset type?\n\n{atype['id']} - {atype['name']}",
+            buttons=("Remove", "Cancel"),
+            severity=hou.severityType.Warning
+        )
+        
+        if result == 0:
+            config = load_department_config()
+            if config and 'asset_types' in config:
+                config['asset_types'] = [at for at in config['asset_types'] if at['id'] != atype['id']]
+                config['version'] = "2.0"
+                config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+                
+                success, message = save_department_config(config)
+                if success:
+                    self._load_asset_types()
+                    hou.ui.displayMessage("Asset type removed!", severity=hou.severityType.Message)
+                else:
+                    hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+    
     # ================ Template Methods ================
     
     def _on_template_changed(self, index):
@@ -487,20 +673,32 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 icon = dept.get('icon', '📁')
                 software_folders = dept.get('software_folders', [])
                 create_publish = dept.get('create_publish', False)
+                subdepartments = dept.get('subdepartments', [])
                 
                 preview += f"{icon} {dept_id}/ ({dept_name})\n"
                 
                 # Software subfolders
-                if software_folders:
-                    for sw in software_folders:
-                        preview += f"  ├─ {sw}/\n"
+                for sw in software_folders:
+                    preview += f"  ├─ {sw}/\n"
                 
-                # Publish folder
-                if create_publish:
-                    if software_folders:
-                        preview += f"  └─ _publish/\n"
+                # Subdepartments
+                for i, subdept in enumerate(subdepartments):
+                    subdept_id = subdept['id']
+                    subdept_name = subdept.get('name', subdept_id)
+                    subdept_publish = subdept.get('create_publish', False)
+                    
+                    is_last_subdept = (i == len(subdepartments) - 1) and not create_publish
+                    branch = "└─" if is_last_subdept else "├─"
+                    
+                    if subdept_publish:
+                        preview += f"  {branch} {subdept_id}/ ({subdept_name})\n"
+                        preview += f"  │  └─ _publish/\n"
                     else:
-                        preview += f"  └─ _publish/\n"
+                        preview += f"  {branch} {subdept_id}/ ({subdept_name})\n"
+                
+                # Publish folder at department level
+                if create_publish:
+                    preview += f"  └─ _publish/\n"
                 
                 preview += "\n"
         
@@ -514,6 +712,11 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
   ├─ houdini/
   ├─ maya/
   ├─ zbrush/
+  ├─ 01_sculpt/
+  │  └─ _publish/
+  ├─ 02_retopo/
+  │  └─ _publish/
+  ├─ 03_uv/
   └─ _publish/
 
 🦴 02_rigging/ (Rigging)
@@ -523,6 +726,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
   ├─ houdini/
   ├─ substance/
   ├─ mari/
+  ├─ 01_texture/
   └─ _publish/
 """
     
