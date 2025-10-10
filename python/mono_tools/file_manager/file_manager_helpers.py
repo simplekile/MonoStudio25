@@ -429,6 +429,69 @@ def save_tabs_settings(settings: 'QtCore.QSettings', tabs_conf):
         if DEBUG: print(f"⚠️ save_tabs_settings error: {e}")
 
 
+def clean_type_name(type_name):
+    """
+    Clean type name: remove underscore prefix
+    Examples: _characters → characters, _environments → environments
+    """
+    if not type_name:
+        return ""
+    return type_name.lstrip('_')
+
+def clean_department_name(dept_name):
+    """
+    Clean department name: remove number prefix and underscore
+    Examples: 01_modeling → modeling, 02_rigging → rigging
+    """
+    if not dept_name:
+        return ""
+    # Remove pattern like "01_", "02_", etc.
+    cleaned = re.sub(r'^\d+_', '', dept_name)
+    return cleaned
+
+def clean_asset_name(asset_name):
+    """
+    Clean asset name: remove prefix like char_, prop_, env_
+    Examples: char_Cyborg → Cyborg, prop_Chair → Chair
+    """
+    if not asset_name:
+        return ""
+    # Remove common prefixes
+    prefixes = ['char_', 'prop_', 'env_', 'veh_', 'fx_', 'graphic_']
+    for prefix in prefixes:
+        if asset_name.lower().startswith(prefix):
+            return asset_name[len(prefix):]
+    return asset_name
+
+def generate_new_filename(type_name, asset_name, department, version="v001", ext=".hip"):
+    """
+    Generate filename in format: $type_$assetname_$department_$version.ext
+    
+    Args:
+        type_name: Type like "_characters" → "characters"
+        asset_name: Asset like "char_Cyborg" → "Cyborg"
+        department: Department like "01_modeling" → "modeling"
+        version: Version string like "v001"
+        ext: File extension like ".hip"
+    
+    Returns:
+        Filename like "characters_Cyborg_modeling_v001.hip"
+    """
+    clean_type = clean_type_name(type_name)
+    clean_asset = clean_asset_name(asset_name)
+    clean_dept = clean_department_name(department)
+    
+    # Ensure version has 'v' prefix
+    if not version.startswith('v'):
+        version = f"v{version}"
+    
+    # Ensure extension has dot
+    if not ext.startswith('.'):
+        ext = f".{ext}"
+    
+    filename = f"{clean_type}_{clean_asset}_{clean_dept}_{version}{ext}"
+    return filename
+
 def parse_asset_info_from_filename(filename):
     """
     Parse asset type, asset name, department from filename
