@@ -13,28 +13,36 @@ _minibar_instance = None
 def add_file_manager_to_menu():
     """Thêm File Manager vào menu Houdini"""
     try:
-        # Add to Houdini menu
-        main_menu = hou.ui.mainMenuBar()
-        if main_menu:
-            # Create MonoStudio menu
-            mono_menu = main_menu.addMenu("MonoStudio")
-            
-            # File Manager submenu
-            file_menu = mono_menu.addMenu("File Manager")
-            
-            # Settings Dialog
-            file_menu.addAction("⚡ Settings Dialog", show_mono_file_manager)
-            
-            # MiniBar actions
-            file_menu.addSeparator()
-            file_menu.addAction("🚀 Show MiniBar", show_minibar_manually)
-            file_menu.addAction("❌ Hide MiniBar", hide_minibar_manually)
-            
-            return True
-        return False
+        # Get main window and menu bar using Qt
+        main_window = hou.qt.mainWindow()
+        if not main_window:
+            return False
+        
+        menu_bar = main_window.menuBar()
+        if not menu_bar:
+            return False
+        
+        # Find or create Mono Studio menu
+        mono_menu = None
+        for action in menu_bar.actions():
+            if action.text() == "MonoStudio":
+                mono_menu = action.menu()
+                break
+        
+        if not mono_menu:
+            mono_menu = menu_bar.addMenu("MonoStudio")
+        
+        # Add File Manager actions
+        mono_menu.addAction("⚡ File Manager", show_mono_file_manager)
+        mono_menu.addAction("🚀 Show MiniBar", show_minibar_manually)
+        mono_menu.addAction("❌ Hide MiniBar", hide_minibar_manually)
+        
+        return True
         
     except Exception as e:
         print(f"⚠️ Error adding to menu: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def show_minibar_manually():
