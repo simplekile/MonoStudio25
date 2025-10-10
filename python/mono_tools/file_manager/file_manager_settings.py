@@ -4,6 +4,7 @@ Professional settings dialog with tabbed preview for minibar configuration
 """
 
 import os
+import json
 from datetime import datetime
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import hou
@@ -129,27 +130,11 @@ class AssetTypeDialog(QtWidgets.QDialog):
         fields_layout = QtWidgets.QFormLayout()
         fields_layout.setSpacing(10)
         
-        # Common asset type suggestions
-        COMMON_TYPES = {
-            'char': '_characters',
-            'character': '_characters',
-            'prop': '_props',
-            'env': '_environments',
-            'environment': '_environments',
-            'veh': '_vehicles',
-            'vehicle': '_vehicles',
-            'weap': '_weapons',
-            'weapon': '_weapons',
-            'fx': '_fx',
-            'effect': '_fx',
-            'set': '_sets',
-            'cam': '_cameras',
-            'camera': '_cameras',
-            'light': '_lights'
-        }
+        # Load asset type suggestions from external file
+        suggestions = self._load_asset_type_suggestions()
         
         # Smart folder name input with autocomplete
-        self.folder_edit = SmartLineEdit(COMMON_TYPES, self)
+        self.folder_edit = SmartLineEdit(suggestions, self)
         self.folder_edit.setPlaceholderText("Type: char, prop, env...")
         self.folder_edit.textChanged.connect(self._on_folder_changed)
         fields_layout.addRow("📁 Folder Name:", self.folder_edit)
@@ -256,6 +241,79 @@ class AssetTypeDialog(QtWidgets.QDialog):
         
         self.cancel_btn.setObjectName("cancel_btn")
     
+    def _load_asset_type_suggestions(self):
+        """Load asset type suggestions from external JSON file"""
+        try:
+            # Get the directory of this file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
+            
+            if os.path.exists(suggestions_file):
+                with open(suggestions_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('asset_type_suggestions', {})
+            else:
+                # Fallback to default suggestions
+                return {
+                    'char': '_characters',
+                    'prop': '_props',
+                    'env': '_environments',
+                    'veh': '_vehicles',
+                    'weap': '_weapons',
+                    'fx': '_fx'
+                }
+        except Exception as e:
+            print(f"Error loading asset type suggestions: {e}")
+            return {}
+    
+    def _load_prefix_mapping(self):
+        """Load prefix mapping from external JSON file"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
+            
+            if os.path.exists(suggestions_file):
+                with open(suggestions_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('prefix_mapping', {})
+            else:
+                # Fallback to default mapping
+                return {
+                    '_characters': 'char_',
+                    '_props': 'prop_',
+                    '_environments': 'env_',
+                    '_vehicles': 'veh_',
+                    '_weapons': 'weap_',
+                    '_fx': 'fx_'
+                }
+        except Exception as e:
+            print(f"Error loading prefix mapping: {e}")
+            return {}
+    
+    def _load_display_name_mapping(self):
+        """Load display name mapping from external JSON file"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
+            
+            if os.path.exists(suggestions_file):
+                with open(suggestions_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('display_name_mapping', {})
+            else:
+                # Fallback to default mapping
+                return {
+                    '_characters': 'Character',
+                    '_props': 'Prop',
+                    '_environments': 'Environment',
+                    '_vehicles': 'Vehicle',
+                    '_weapons': 'Weapon',
+                    '_fx': 'FX'
+                }
+        except Exception as e:
+            print(f"Error loading display name mapping: {e}")
+            return {}
+    
     def _on_folder_changed(self, text):
         """Auto-generate prefix from folder name"""
         if not text.strip():
@@ -266,28 +324,9 @@ class AssetTypeDialog(QtWidgets.QDialog):
         # Use suggestion if available, otherwise use typed text
         folder = self.folder_edit.current_suggestion if self.folder_edit.current_suggestion else text.strip()
         
-        # Generate prefix: remove underscore, add underscore at end
-        prefix = folder.replace('_', '') + '_'
-        
-        # Smart mapping for common cases
-        if folder == '_characters':
-            prefix = 'char_'
-        elif folder == '_props':
-            prefix = 'prop_'
-        elif folder == '_environments':
-            prefix = 'env_'
-        elif folder == '_vehicles':
-            prefix = 'veh_'
-        elif folder == '_weapons':
-            prefix = 'weap_'
-        elif folder == '_fx':
-            prefix = 'fx_'
-        elif folder == '_sets':
-            prefix = 'set_'
-        elif folder == '_cameras':
-            prefix = 'cam_'
-        elif folder == '_lights':
-            prefix = 'light_'
+        # Load prefix mapping from external file
+        prefix_mapping = self._load_prefix_mapping()
+        prefix = prefix_mapping.get(folder, folder.replace('_', '') + '_')
         
         self.prefix_edit.setText(prefix)
         self._update_preview()
@@ -816,16 +855,9 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 hou.ui.displayMessage("Folder name and prefix are required.", severity=hou.severityType.Warning)
                 return
             
-            # Generate display name from folder
-            type_name = type_id.replace('_', '').title()
-            if type_name == 'Characters':
-                type_name = 'Character'
-            elif type_name == 'Environments':
-                type_name = 'Environment'
-            elif type_name == 'Vehicles':
-                type_name = 'Vehicle'
-            elif type_name == 'Weapons':
-                type_name = 'Weapon'
+            # Generate display name from folder using mapping
+            display_mapping = self._load_display_name_mapping()
+            type_name = display_mapping.get(type_id, type_id.replace('_', '').title())
             
             # Add to config
             config = load_department_config()
@@ -871,16 +903,9 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 hou.ui.displayMessage("Folder name and prefix are required.", severity=hou.severityType.Warning)
                 return
             
-            # Generate display name from folder
-            type_name = type_id.replace('_', '').title()
-            if type_name == 'Characters':
-                type_name = 'Character'
-            elif type_name == 'Environments':
-                type_name = 'Environment'
-            elif type_name == 'Vehicles':
-                type_name = 'Vehicle'
-            elif type_name == 'Weapons':
-                type_name = 'Weapon'
+            # Generate display name from folder using mapping
+            display_mapping = self._load_display_name_mapping()
+            type_name = display_mapping.get(type_id, type_id.replace('_', '').title())
             
             # Update config
             config = load_department_config()
