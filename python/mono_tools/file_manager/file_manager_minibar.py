@@ -1030,7 +1030,29 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 else:
                     preview += f"  {branch} {dept_id}/\n"
             
-            total_folders = sum(len(dept_map.get(d, {}).get('software_folders', [])) or 1 for d in departments)
+            # Count total folders that will be created
+            total_folders = 0
+            for dept_id in departments:
+                dept_config = dept_map.get(dept_id, {})
+                software_folders = dept_config.get('software_folders', [])
+                subdepartments = dept_config.get('subdepartments', [])
+                create_publish = dept_config.get('create_publish', False)
+                
+                # Main department folder
+                total_folders += 1
+                
+                # Software folders
+                total_folders += len(software_folders)
+                
+                # Subdepartments
+                for subdept in subdepartments:
+                    total_folders += 1  # Subdepartment folder
+                    if subdept.get('create_publish', False):
+                        total_folders += 1  # Subdepartment publish
+                
+                # Department publish
+                if create_publish:
+                    total_folders += 1
             preview += f"\nTotal: {len(departments)} departments, {total_folders} folders\n\nProceed?"
             
             confirm = hou.ui.displayMessage(
