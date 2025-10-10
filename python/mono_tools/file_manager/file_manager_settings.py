@@ -143,9 +143,9 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         self.project_tab = self._build_project_tab()
         self.main_tabs.addTab(self.project_tab, "📁 Project & Files")
         
-        # Tab 2: Department Structure
+        # Tab 2: Project Structure
         self.dept_tab = self._build_department_tab()
-        self.main_tabs.addTab(self.dept_tab, "🏗️ Department Structure")
+        self.main_tabs.addTab(self.dept_tab, "🏗️ Project Structure")
         
         # Tab 3: UI Settings
         self.ui_tab = self._build_ui_settings_tab()
