@@ -875,6 +875,30 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 item.setToolTip(f"Folder: {type_id}\nPrefix: {prefix}\nName: {type_name}")
                 self.asset_type_list.addItem(item)
     
+    def _load_display_name_mapping(self):
+        """Load display name mapping from external JSON file"""
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
+            
+            if os.path.exists(suggestions_file):
+                with open(suggestions_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('display_name_mapping', {})
+            else:
+                # Fallback to default mapping
+                return {
+                    '_characters': 'Character',
+                    '_props': 'Prop',
+                    '_environments': 'Environment',
+                    '_vehicles': 'Vehicle',
+                    '_weapons': 'Weapon',
+                    '_fx': 'FX'
+                }
+        except Exception as e:
+            print(f"Error loading display name mapping: {e}")
+            return {}
+    
     def _add_asset_type(self):
         """Add new asset type - smart autocomplete dialog"""
         dialog = AssetTypeDialog(self, mode="add")
