@@ -80,13 +80,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(160); self.shot_display.setMaximumWidth(160); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
-        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• Reload Scene\n• Restart Houdini\n• Open File Location\n• Open Render Folder"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
-        self.btn_save_version=QtWidgets.QToolButton(); self.btn_save_version.setText("💾"); self.btn_save_version.setFixedSize(24, 24); self.btn_save_version.setToolTip("Save Version\n• Increment version number\n• Move old version to Vers folder"); self.btn_save_version.clicked.connect(self._save_version)
-        # Set font to ensure emoji displays correctly
-        font = self.btn_save_version.font()
-        font.setPointSize(12)
-        font.setFamily("Segoe UI Emoji")  # Use emoji font
-        self.btn_save_version.setFont(font)
+        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• Save Version\n• Reload Scene\n• Restart Houdini\n• Open Folders"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
         self.btn_settings=QtWidgets.QToolButton(); self.btn_settings.setText("⚙️"); self.btn_settings.setFixedSize(32, 24); self.btn_settings.setToolTip("Settings Dialog • Configure project and scan files"); self.btn_settings.clicked.connect(self._open_settings)
         lay=QtWidgets.QHBoxLayout(self); lay.setContentsMargins(4,3,6,3); lay.setSpacing(3)
         lay.addWidget(self.handle_area, 0)
@@ -94,7 +88,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         lay.addWidget(self.dept_btn, 0)
         lay.addWidget(self.shot_display, 1)
         lay.addWidget(self.btn_quick_menu, 0)
-        lay.addWidget(self.btn_save_version, 0)
         lay.addWidget(self.btn_settings, 0)
         self.setStyleSheet("""
         #MonoMiniBar { 
@@ -419,6 +412,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             QMenu::item:selected { background:#3d5a99; }
         """)
         new_action = menu.addAction("📄 New File..."); new_action.triggered.connect(self._new_file)
+        save_ver_action = menu.addAction("💾 Save Version..."); save_ver_action.triggered.connect(self._save_version)
         menu.addSeparator()
         reload_action = menu.addAction("🔄 Reload Scene"); reload_action.triggered.connect(self._reload_scene)
         restart_action = menu.addAction("🔃 Restart Houdini"); restart_action.triggered.connect(self._restart_houdini)
