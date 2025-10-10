@@ -28,6 +28,9 @@ class SmartLineEdit(QtWidgets.QLineEdit):
         self.suggestions_dict = suggestions_dict or {}
         self.current_suggestion = ""
         
+        # CRITICAL: Disable default Tab focus behavior
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        
         # Debug: Print all suggestions
         print(f"\n[SmartLineEdit] === INITIALIZATION ===")
         print(f"[SmartLineEdit] Total suggestions: {len(self.suggestions_dict)}")
@@ -38,23 +41,52 @@ class SmartLineEdit(QtWidgets.QLineEdit):
         else:
             print(f"[SmartLineEdit] WARNING: No suggestions loaded!")
         print(f"[SmartLineEdit] === END INIT ===\n")
+    
+    def event(self, event):
+        """Override event to catch Tab before Qt processes it"""
+        if event.type() == QtCore.QEvent.KeyPress:
+            key_event = event
+            if key_event.key() == QtCore.Qt.Key_Tab and self.current_suggestion:
+                print(f"[SmartLineEdit] !!! EVENT LEVEL Tab intercept - suggestion exists!")
+                self.setText(self.current_suggestion)
+                self.current_suggestion = ""
+                self.setCursorPosition(len(self.text()))
+                self.update()
+                return True  # Event handled, stop propagation
+        
+        return super().event(event)
         
     def keyPressEvent(self, event):
         """Handle Tab key to accept suggestion"""
         print(f"[SmartLineEdit] Key pressed: {event.key()} (Tab={QtCore.Qt.Key_Tab})")
         
-        # MUST handle Tab BEFORE calling super()
-        if event.key() == QtCore.Qt.Key_Tab and self.current_suggestion:
-            # Accept suggestion - Block default Tab
-            print(f"[SmartLineEdit] >>> ACCEPTING: '{self.current_suggestion}'")
-            self.setText(self.current_suggestion)
-            self.current_suggestion = ""
-            self.update()
-            event.accept()  # Block Tab from moving focus
-            print(f"[SmartLineEdit] >>> Text set, event accepted, returning early")
-            return  # CRITICAL: Do NOT call super() or _update_suggestion()
+        # CRITICAL: Handle Tab with suggestion - COMPLETELY override default behavior
+        if event.key() == QtCore.Qt.Key_Tab:
+            print(f"[SmartLineEdit] Tab key! current_suggestion='{self.current_suggestion}'")
+            if self.current_suggestion:
+                # Accept suggestion - IGNORE the event completely
+                print(f"[SmartLineEdit] >>> ACCEPTING: '{self.current_suggestion}'")
+                accepted_value = self.current_suggestion
+                self.setText(accepted_value)
+                self.current_suggestion = ""
+                
+                # Move cursor to end
+                self.setCursorPosition(len(accepted_value))
+                
+                # Force update
+                self.update()
+                
+                # IGNORE the event - do not propagate
+                event.ignore()
+                print(f"[SmartLineEdit] >>> Text='{accepted_value}', event IGNORED, returning")
+                return
+            else:
+                print(f"[SmartLineEdit] No suggestion, allow normal Tab behavior")
+                # Allow normal Tab (move to next field)
+                super().keyPressEvent(event)
+                return
         
-        # For all other keys (including Tab without suggestion)
+        # For all other keys
         super().keyPressEvent(event)
         
         # Update suggestion after key is processed
