@@ -6,7 +6,8 @@ from .file_manager_helpers import (
     ORG, APP, collect_files, get_current_houdini_file, is_current_file, 
     infer_shot, parse_ver, open_in_explorer, get_render_folder_path, 
     increment_version_and_backup, debug_print, DEBUG,
-    generate_new_filename, create_asset_folder_structure, get_standard_departments
+    generate_new_filename, create_asset_folder_structure, get_standard_departments,
+    load_asset_types_config
 )
 
 class MainWindowEventFilter(QtCore.QObject):
@@ -927,50 +928,50 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 )
                 return
             
-            # Ask for asset type
-            from .file_manager_helpers import scan_project_types
-            project_path = os.path.join(root, project)
-            types = scan_project_types(project_path)
-            
-            # Filter to only asset types (not Shots)
-            asset_types = [(name, path, is_assets) for name, path, is_assets in types if is_assets]
+            # Load asset types from config (not scan - so user can create even if folder doesn't exist)
+            asset_types = load_asset_types_config()
             
             if not asset_types:
                 hou.ui.displayMessage(
-                    "No asset types found in project.\n\nPlease check project structure.",
+                    "No asset types configured.\n\nPlease configure in Settings.",
                     severity=hou.severityType.Warning,
                     title="New Folder"
                 )
                 return
             
-            # Build type selection message
-            type_list = "\n".join([f"  • {name}" for name, _, _ in asset_types])
-            result = hou.ui.readInput(
-                f"Create new asset folder structure:\n\nAvailable types:\n{type_list}\n\nEnter type name (e.g., _characters):",
-                buttons=("Next", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=1,
-                title="New Folder - Select Type"
+            # Build type selection for dropdown
+            project_path = os.path.join(root, project)
+            type_choices = []
+            type_ids = []
+            
+            for atype in asset_types:
+                type_id = atype['id']
+                type_name = atype.get('name', type_id)
+                icon = atype.get('icon', '📁')
+                
+                # Count existing assets (if type folder exists)
+                type_path = os.path.join(project_path, "01_assets", type_id)
+                if os.path.exists(type_path):
+                    count = len([d for d in os.listdir(type_path) if os.path.isdir(os.path.join(type_path, d))])
+                    type_choices.append(f"{icon} {type_name} ({count} existing)")
+                else:
+                    type_choices.append(f"{icon} {type_name} (new type folder)")
+                
+                type_ids.append(type_id)
+            
+            # Show native Houdini selection dialog
+            selected = hou.ui.selectFromList(
+                type_choices,
+                message="Select asset type for new folder:",
+                title="New Folder - Select Type",
+                column_header="Type",
+                num_visible_rows=len(type_choices)
             )
             
-            if result[0] != 0:  # Cancelled
+            if not selected:  # Cancelled
                 return
             
-            selected_type = result[1].strip()
-            if not selected_type:
-                hou.ui.displayMessage("Type name cannot be empty.", severity=hou.severityType.Warning)
-                return
-            
-            # Validate type exists
-            type_exists = any(name == selected_type for name, _, _ in asset_types)
-            if not type_exists:
-                hou.ui.displayMessage(
-                    f"Type '{selected_type}' not found.\n\nPlease select from available types.",
-                    severity=hou.severityType.Warning,
-                    title="Invalid Type"
-                )
-                return
+            selected_type = type_ids[selected[0]]
             
             # Ask for asset name
             result = hou.ui.readInput(
@@ -993,12 +994,44 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             # Get standard departments
             departments = get_standard_departments()
             
-            # Preview structure
+            # Load department config for preview
+            from .file_manager_helpers import load_department_config
+            config = load_department_config()
+            dept_map = {}
+            if config and 'standard_departments' in config:
+                dept_map = {d['id']: d for d in config['standard_departments']}
+            
+            # Build preview with software subfolders
+            # Get prefix for asset name
+            prefix = ''
+            for atype in asset_types:
+                if atype['id'] == selected_type:
+                    prefix = atype.get('prefix', '')
+                    break
+            
             preview = f"Creating folder structure:\n\n"
-            preview += f"01_assets/{selected_type}/{'char_' if 'character' in selected_type.lower() else ''}{asset_name}/\n"
-            for dept in departments:
-                preview += f"  ├─ {dept}/\n"
-            preview += f"\nTotal: {len(departments)} department folders\n\nProceed?"
+            preview += f"01_assets/{selected_type}/{prefix}{asset_name}/\n"
+            
+            # Show each department with software subfolders if configured
+            for i, dept_id in enumerate(departments):
+                dept_config = dept_map.get(dept_id, {})
+                software_folders = dept_config.get('software_folders', [])
+                
+                is_last = (i == len(departments) - 1)
+                branch = "└─" if is_last else "├─"
+                
+                if software_folders:
+                    preview += f"  {branch} {dept_id}/\n"
+                    for j, software in enumerate(software_folders):
+                        is_last_sw = (j == len(software_folders) - 1)
+                        sw_branch = "└─" if is_last_sw else "├─"
+                        indent = "     " if is_last else "  │  "
+                        preview += f"{indent}{sw_branch} {software}/\n"
+                else:
+                    preview += f"  {branch} {dept_id}/\n"
+            
+            total_folders = sum(len(dept_map.get(d, {}).get('software_folders', [])) or 1 for d in departments)
+            preview += f"\nTotal: {len(departments)} departments, {total_folders} folders\n\nProceed?"
             
             confirm = hou.ui.displayMessage(
                 preview,
@@ -1044,11 +1077,10 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 
                 if create_file == 0:
                     # Set type and open new file dialog
-                    # Find and select the type
-                    for type_name, type_path, is_assets in asset_types:
-                        if type_name == selected_type:
-                            self._select_type(type_name, type_path, is_assets)
-                            break
+                    # asset_types here is from config, need to convert format for _select_type
+                    type_path = os.path.join(project_path, "01_assets", selected_type)
+                    is_assets = True
+                    self._select_type(selected_type, type_path, is_assets)
                     
                     # Open new file dialog (will use current type)
                     self._new_file()

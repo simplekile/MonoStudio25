@@ -1,49 +1,86 @@
 {
+  "asset_types": [
+    {
+      "id": "_characters",
+      "name": "Characters",
+      "prefix": "char_",
+      "icon": "🧑",
+      "description": "Character assets"
+    },
+    {
+      "id": "_props",
+      "name": "Props",
+      "prefix": "prop_",
+      "icon": "📦",
+      "description": "Prop assets"
+    },
+    {
+      "id": "_environments",
+      "name": "Environments",
+      "prefix": "env_",
+      "icon": "🏞️",
+      "description": "Environment assets"
+    },
+    {
+      "id": "_vehicles",
+      "name": "Vehicles",
+      "prefix": "veh_",
+      "icon": "🚗",
+      "description": "Vehicle assets"
+    }
+  ],
   "standard_departments": [
     {
       "id": "01_modeling",
       "name": "Modeling",
       "icon": "🎨",
-      "description": "Geometry and modeling work"
+      "description": "Geometry and modeling work",
+      "software_folders": ["houdini", "maya", "zbrush"]
     },
     {
       "id": "02_rigging",
       "name": "Rigging",
       "icon": "🦴",
-      "description": "Character rigging and setup"
+      "description": "Character rigging and setup",
+      "software_folders": []
     },
     {
       "id": "03_surfacing",
       "name": "Surfacing",
       "icon": "🎭",
-      "description": "Materials and texturing"
+      "description": "Materials and texturing",
+      "software_folders": ["houdini", "substance", "mari"]
     },
     {
       "id": "04_lookdev",
       "name": "LookDev",
       "icon": "💡",
-      "description": "Look development and shading"
+      "description": "Look development and shading",
+      "software_folders": []
     },
     {
       "id": "05_groom",
       "name": "Groom",
       "icon": "✂️",
-      "description": "Hair and fur grooming"
+      "description": "Hair and fur grooming",
+      "software_folders": []
     },
     {
       "id": "06_anim",
       "name": "Animation",
       "icon": "🎬",
-      "description": "Animation work"
+      "description": "Animation work",
+      "software_folders": []
     },
     {
       "id": "07_turntable",
       "name": "Turntable",
       "icon": "🔄",
-      "description": "Turntable renders"
+      "description": "Turntable renders",
+      "software_folders": []
     }
   ],
-  "version": "1.0",
+  "version": "2.0",
   "last_modified": "2024-12-19"
 }
 
