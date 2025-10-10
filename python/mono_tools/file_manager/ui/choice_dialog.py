@@ -81,7 +81,7 @@ class ChoiceDialog(MonoBaseDialog):
                     background: {self.COLOR_ACCENT};
                 }}
             """)
-            btn.clicked.connect(lambda checked, idx=i: self._on_choice_selected(idx))
+            btn.clicked.connect(lambda idx=i: self._on_choice_selected(idx))
             button_layout.addWidget(btn)
         
         layout.addWidget(button_group)
