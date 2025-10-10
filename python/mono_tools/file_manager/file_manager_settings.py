@@ -43,21 +43,18 @@ class SmartLineEdit(QtWidgets.QLineEdit):
         """Handle Tab key to accept suggestion"""
         print(f"[SmartLineEdit] Key pressed: {event.key()} (Tab={QtCore.Qt.Key_Tab})")
         
-        if event.key() == QtCore.Qt.Key_Tab:
-            print(f"[SmartLineEdit] TAB detected! current_suggestion='{self.current_suggestion}'")
-            if self.current_suggestion:
-                # Accept suggestion - Block default Tab
-                print(f"[SmartLineEdit] >>> ACCEPTING: {self.current_suggestion}")
-                self.setText(self.current_suggestion)
-                self.current_suggestion = ""
-                self.update()
-                event.accept()  # This blocks the Tab from moving focus
-                print(f"[SmartLineEdit] >>> Event accepted, focus should NOT move")
-                return  # Important: return early
-            else:
-                print(f"[SmartLineEdit] No suggestion - allowing normal Tab")
+        # MUST handle Tab BEFORE calling super()
+        if event.key() == QtCore.Qt.Key_Tab and self.current_suggestion:
+            # Accept suggestion - Block default Tab
+            print(f"[SmartLineEdit] >>> ACCEPTING: '{self.current_suggestion}'")
+            self.setText(self.current_suggestion)
+            self.current_suggestion = ""
+            self.update()
+            event.accept()  # Block Tab from moving focus
+            print(f"[SmartLineEdit] >>> Text set, event accepted, returning early")
+            return  # CRITICAL: Do NOT call super() or _update_suggestion()
         
-        # Call parent for all other keys
+        # For all other keys (including Tab without suggestion)
         super().keyPressEvent(event)
         
         # Update suggestion after key is processed
