@@ -89,68 +89,39 @@ class SmartLineEdit(QtWidgets.QLineEdit):
     
     def paintEvent(self, event):
         """Custom paint to show gray suggestion text"""
-        print(f"\n[SmartLineEdit] === PAINT EVENT ===")
-        print(f"[SmartLineEdit] current_suggestion='{self.current_suggestion}'")
-        print(f"[SmartLineEdit] text()='{self.text()}'")
-        
         super().paintEvent(event)
         
         # Draw suggestion in gray after typed text
         if self.current_suggestion and self.text():
-            typed = self.text()
-            print(f"[SmartLineEdit] Both exist - checking match")
+            typed = self.text().strip()
+            suggestion = self.current_suggestion
             
-            # Check if suggestion matches typed text
-            if self.current_suggestion.lower().startswith(typed.lower()):
-                print(f"[SmartLineEdit] Match confirmed! Drawing...")
-                
-                painter = QtGui.QPainter(self)
-                painter.setRenderHint(QtGui.QPainter.Antialiasing)
-                
-                # Calculate position
-                fm = self.fontMetrics()
-                typed_width = fm.horizontalAdvance(typed)
-                
-                # Get suggestion part (what's not typed yet)
-                suggestion_part = self.current_suggestion[len(typed):]
-                
-                print(f"[SmartLineEdit] typed='{typed}', suggestion='{self.current_suggestion}', part='{suggestion_part}'")
-                
-                # Get content rect (area where text is drawn)
-                content_rect = self.contentsRect()
-                
-                # Get text margins for proper positioning
-                margins = self.textMargins()
-                left_margin = margins.left()
-                
-                # Style options to get exact text position
-                option = QtWidgets.QStyleOptionFrame()
-                self.initStyleOption(option)
-                text_rect = self.style().subElementRect(QtWidgets.QStyle.SE_LineEditContents, option, self)
-                
-                # Draw gray text
-                painter.setPen(QtGui.QColor(100, 100, 100))  # Darker gray
-                painter.setFont(self.font())
-                
-                # Position: after typed text
-                x = text_rect.left() + typed_width + 2
-                y = text_rect.center().y() + fm.ascent() // 2
-                
-                print(f"[SmartLineEdit] Drawing at x={x}, y={y}")
-                print(f"[SmartLineEdit] text_rect={text_rect}, typed_width={typed_width}")
-                print(f"[SmartLineEdit] content_rect={content_rect}, margins={margins}")
-                
-                painter.drawText(x, y, suggestion_part)
-                painter.end()
-                print(f"[SmartLineEdit] Draw complete!")
-            else:
-                print(f"[SmartLineEdit] No match: '{self.current_suggestion}'.lower().startswith('{typed}'.lower()) = False")
-        else:
-            if not self.current_suggestion:
-                print(f"[SmartLineEdit] No current_suggestion")
-            if not self.text():
-                print(f"[SmartLineEdit] No text()")
-        print(f"[SmartLineEdit] === END PAINT ===\n")
+            # IMPORTANT: Show the FULL suggestion, not check if it starts with typed text
+            # Because typed="char" but suggestion="_characters" (with underscore)
+            # We want to show the full suggestion as gray text
+            
+            painter = QtGui.QPainter(self)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            
+            # Calculate position
+            fm = self.fontMetrics()
+            typed_width = fm.horizontalAdvance(typed)
+            
+            # Style options to get exact text position
+            option = QtWidgets.QStyleOptionFrame()
+            self.initStyleOption(option)
+            text_rect = self.style().subElementRect(QtWidgets.QStyle.SE_LineEditContents, option, self)
+            
+            # Draw gray text - show FULL suggestion
+            painter.setPen(QtGui.QColor(120, 120, 120))  # Gray
+            painter.setFont(self.font())
+            
+            # Position: after typed text
+            x = text_rect.left() + typed_width + 4
+            y = text_rect.center().y() + fm.ascent() // 2 - 1
+            
+            painter.drawText(x, y, f" → {suggestion}")
+            painter.end()
 
 class AssetTypeDialog(QtWidgets.QDialog):
     """Custom dialog for adding/editing asset types - File Manager style"""
