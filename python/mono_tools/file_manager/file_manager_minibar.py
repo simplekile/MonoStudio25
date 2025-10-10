@@ -143,7 +143,10 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         # Trigger initial file refresh after UI is ready
         QtCore.QTimer.singleShot(100, self._refresh_files_for_current_tab)
         
-        self._restore_relative_position()
+        # Delay position restore to let Houdini window stabilize
+        # This prevents incorrect position calculation on startup
+        QtCore.QTimer.singleShot(200, self._restore_relative_position)
+        
         self._update_lock_visual_feedback()
         self._update_current_shot_highlighting()
         
