@@ -36,7 +36,24 @@
       "icon": "🎨",
       "description": "Geometry and modeling work",
       "software_folders": ["houdini", "maya", "zbrush"],
-      "create_publish": true
+      "create_publish": true,
+      "subdepartments": [
+        {
+          "id": "01_sculpt",
+          "name": "Sculpt",
+          "create_publish": true
+        },
+        {
+          "id": "02_retopo",
+          "name": "Retopo",
+          "create_publish": true
+        },
+        {
+          "id": "03_uv",
+          "name": "UV",
+          "create_publish": false
+        }
+      ]
     },
     {
       "id": "02_rigging",
@@ -52,7 +69,14 @@
       "icon": "🎭",
       "description": "Materials and texturing",
       "software_folders": ["houdini", "substance", "mari"],
-      "create_publish": true
+      "create_publish": true,
+      "subdepartments": [
+        {
+          "id": "01_texture",
+          "name": "Texture",
+          "create_publish": false
+        }
+      ]
     },
     {
       "id": "04_lookdev",
