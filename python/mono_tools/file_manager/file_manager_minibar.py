@@ -6,7 +6,7 @@ from .file_manager_helpers import (
     ORG, APP, collect_files, get_current_houdini_file, is_current_file, 
     infer_shot, parse_ver, open_in_explorer, get_render_folder_path, 
     increment_version_and_backup, debug_print, DEBUG,
-    generate_new_filename
+    generate_new_filename, create_asset_folder_structure, get_standard_departments
 )
 
 class MainWindowEventFilter(QtCore.QObject):
@@ -80,7 +80,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(160); self.shot_display.setMaximumWidth(160); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
-        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• Save Version\n• Reload Scene\n• Restart Houdini\n• Open Folders"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
+        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• New Folder\n• Save Version\n• Reload/Restart\n• Open Folders"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
         self.btn_settings=QtWidgets.QToolButton(); self.btn_settings.setText("⚙️"); self.btn_settings.setFixedSize(32, 24); self.btn_settings.setToolTip("Settings Dialog • Configure project and scan files"); self.btn_settings.clicked.connect(self._open_settings)
         lay=QtWidgets.QHBoxLayout(self); lay.setContentsMargins(4,3,6,3); lay.setSpacing(3)
         lay.addWidget(self.handle_area, 0)
@@ -412,12 +412,13 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             QMenu::item:selected { background:#3d5a99; }
         """)
         new_action = menu.addAction("📄 New File..."); new_action.triggered.connect(self._new_file)
+        new_folder_action = menu.addAction("📁 New Folder..."); new_folder_action.triggered.connect(self._new_folder)
         save_ver_action = menu.addAction("💾 Save Version..."); save_ver_action.triggered.connect(self._save_version)
         menu.addSeparator()
         reload_action = menu.addAction("🔄 Reload Scene"); reload_action.triggered.connect(self._reload_scene)
         restart_action = menu.addAction("🔃 Restart Houdini"); restart_action.triggered.connect(self._restart_houdini)
         menu.addSeparator()
-        location_action = menu.addAction("📁 Open File Location"); location_action.triggered.connect(self._open_current_file_location)
+        location_action = menu.addAction("📂 Open File Location"); location_action.triggered.connect(self._open_current_file_location)
         render_action = menu.addAction("🎬 Open Render Folder"); render_action.triggered.connect(self._open_render_folder)
         menu_pos = self.mapToGlobal(self.btn_quick_menu.geometry().bottomLeft()); menu.exec_(menu_pos)
 
@@ -904,6 +905,162 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 f"Failed to create new file:\n{str(e)}",
                 severity=hou.severityType.Error,
                 title="New File Error"
+            )
+            import traceback
+            traceback.print_exc()
+    
+    def _new_folder(self):
+        """Create new asset folder structure with all departments"""
+        try:
+            # Get project settings
+            root = self.s.value("project_root", "", type=str)
+            project = self.s.value("current_project", "", type=str)
+            
+            if not root or not project:
+                hou.ui.displayMessage(
+                    "No project configured.\n\nClick ⚙️ Settings to configure project.",
+                    severity=hou.severityType.Warning,
+                    title="New Folder"
+                )
+                return
+            
+            # Ask for asset type
+            from .file_manager_helpers import scan_project_types
+            project_path = os.path.join(root, project)
+            types = scan_project_types(project_path)
+            
+            # Filter to only asset types (not Shots)
+            asset_types = [(name, path, is_assets) for name, path, is_assets in types if is_assets]
+            
+            if not asset_types:
+                hou.ui.displayMessage(
+                    "No asset types found in project.\n\nPlease check project structure.",
+                    severity=hou.severityType.Warning,
+                    title="New Folder"
+                )
+                return
+            
+            # Build type selection message
+            type_list = "\n".join([f"  • {name}" for name, _, _ in asset_types])
+            result = hou.ui.readInput(
+                f"Create new asset folder structure:\n\nAvailable types:\n{type_list}\n\nEnter type name (e.g., _characters):",
+                buttons=("Next", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=1,
+                title="New Folder - Select Type"
+            )
+            
+            if result[0] != 0:  # Cancelled
+                return
+            
+            selected_type = result[1].strip()
+            if not selected_type:
+                hou.ui.displayMessage("Type name cannot be empty.", severity=hou.severityType.Warning)
+                return
+            
+            # Validate type exists
+            type_exists = any(name == selected_type for name, _, _ in asset_types)
+            if not type_exists:
+                hou.ui.displayMessage(
+                    f"Type '{selected_type}' not found.\n\nPlease select from available types.",
+                    severity=hou.severityType.Warning,
+                    title="Invalid Type"
+                )
+                return
+            
+            # Ask for asset name
+            result = hou.ui.readInput(
+                f"Type: {selected_type}\n\nEnter asset name (e.g., Omega, Chair, Tree):",
+                buttons=("Create", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=1,
+                title="New Folder - Asset Name"
+            )
+            
+            if result[0] != 0:  # Cancelled
+                return
+            
+            asset_name = result[1].strip()
+            if not asset_name:
+                hou.ui.displayMessage("Asset name cannot be empty.", severity=hou.severityType.Warning)
+                return
+            
+            # Get standard departments
+            departments = get_standard_departments()
+            
+            # Preview structure
+            preview = f"Creating folder structure:\n\n"
+            preview += f"01_assets/{selected_type}/{'char_' if 'character' in selected_type.lower() else ''}{asset_name}/\n"
+            for dept in departments:
+                preview += f"  ├─ {dept}/\n"
+            preview += f"\nTotal: {len(departments)} department folders\n\nProceed?"
+            
+            confirm = hou.ui.displayMessage(
+                preview,
+                buttons=("Create", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=1,
+                title="Confirm Folder Structure"
+            )
+            
+            if confirm != 0:  # Cancelled
+                return
+            
+            # Create folder structure
+            success, asset_folder, message = create_asset_folder_structure(
+                project_path, 
+                selected_type, 
+                asset_name, 
+                departments
+            )
+            
+            if success:
+                # Show success message
+                hou.ui.displayMessage(
+                    message,
+                    severity=hou.severityType.Message,
+                    title="Folder Created"
+                )
+                
+                # Refresh file list if type matches current selection
+                if self.current_type == selected_type:
+                    self._refresh_files_for_current_tab()
+                
+                # Ask if user wants to create a file in the new folder
+                create_file = hou.ui.displayMessage(
+                    "Folder structure created!\n\nWould you like to create a new file in this asset?",
+                    buttons=("Yes", "No"),
+                    severity=hou.severityType.Message,
+                    default_choice=0,
+                    close_choice=1,
+                    title="Create File?"
+                )
+                
+                if create_file == 0:
+                    # Set type and open new file dialog
+                    # Find and select the type
+                    for type_name, type_path, is_assets in asset_types:
+                        if type_name == selected_type:
+                            self._select_type(type_name, type_path, is_assets)
+                            break
+                    
+                    # Open new file dialog (will use current type)
+                    self._new_file()
+            else:
+                hou.ui.displayMessage(
+                    message,
+                    severity=hou.severityType.Error,
+                    title="Folder Creation Failed"
+                )
+            
+        except Exception as e:
+            hou.ui.displayMessage(
+                f"Failed to create folder structure:\n{str(e)}",
+                severity=hou.severityType.Error,
+                title="New Folder Error"
             )
             import traceback
             traceback.print_exc()

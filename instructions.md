@@ -486,16 +486,17 @@ Compatible with Houdini 21+ (PySide6)
 - **Current Status**: Production Ready (v2.0.0)
 - **Last Major Update**: December 2024
 
-### 🎉 **Current Project Status (v2.0.0)**
+### 🎉 **Current Project Status (v2.2.0)**
 
 #### **✅ Completed Features:**
 - **File Manager**: Complete with MiniBar integration
 - **Material Loader**: Redshift/Karma material creation
 - **Texture Search & Replace**: Path management with regex
 - **Project Cleanup**: 20+ files removed, structure optimized
-- **Documentation**: 4 essential docs, clean structure
+- **Documentation**: Essential docs, clean structure
 - **Testing**: Comprehensive test suite in place
 - **Migration**: All tools migrated to folder structure
+- **Simplified Startup**: Streamlined initialization (45 lines vs 200+)
 
 #### **✅ Production Ready:**
 - All core tools functional
@@ -505,10 +506,20 @@ Compatible with Houdini 21+ (PySide6)
 - Professional documentation
 - Easy installation process
 
+#### **📋 In Planning:**
+- **Assets Manager**: Published asset browser (USD, FBX, ABC)
+  - See: `docs/Assets_Manager_Plan.md` (full design)
+  - See: `docs/Assets_Manager_Workflow.md` (integration patterns)
+  - See: `docs/Assets_Manager_Summary.md` (quick reference)
+  - Status: Planning phase, ready for implementation
+  - Timeline: 12 weeks (6 phases)
+
 #### **📊 Project Statistics:**
 - **Total Files**: ~50+ (optimized from 70+)
-- **Core Tools**: 3 (File Manager, Material Loader, Texture Search)
-- **Documentation**: 4 files (essential only)
+- **Core Tools**: 3 production, 1 in planning
+  - Production: File Manager, Material Loader, Texture Search
+  - Planning: Assets Manager
+- **Documentation**: 10+ files (user guides, technical docs, plans)
 - **Test Files**: 10+ comprehensive tests
 - **Shelf Files**: 9 different shelf configurations
 
