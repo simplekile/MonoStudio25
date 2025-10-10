@@ -924,26 +924,24 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 )
                 return
             
-            # Detect context: Asset or Shot?
-            # Ask user first
-            context_choice = hou.ui.displayMessage(
-                "What would you like to create?",
-                buttons=("Asset Folder", "Shot Folder", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=2,
-                title="New Folder"
+            # Ask user: Asset or Shot? (using custom styled dialog)
+            from .ui import ChoiceDialog
+            
+            choice_dialog = ChoiceDialog(
+                parent=self,
+                title="New Folder",
+                message="What would you like to create?",
+                choices=["Asset Folder", "Shot Folder"],
+                icons=["🎨", "🎬"]
             )
             
-            if context_choice == 2:  # Cancel
-                return
-            
-            context_type = "asset" if context_choice == 0 else "shot"
-            
-            if context_type == "asset":
-                self._new_asset_folder(root, project)
-            else:
-                self._new_shot_folder(root, project)
+            if choice_dialog.exec_():
+                selected = choice_dialog.get_selected_index()
+                
+                if selected == 0:  # Asset
+                    self._new_asset_folder(root, project)
+                elif selected == 1:  # Shot
+                    self._new_shot_folder(root, project)
                 
         except Exception as e:
             hou.ui.displayMessage(
@@ -1002,20 +1000,21 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             selected_type = type_ids[selected[0]]
             
-            # Ask for asset name
-            result = hou.ui.readInput(
-                f"Type: {selected_type}\n\nEnter asset name (e.g., Omega, Chair, Tree):",
-                buttons=("Create", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=1,
-                title="New Folder - Asset Name"
+            # Ask for asset name (using custom styled dialog)
+            from .ui import InputDialog
+            
+            input_dialog = InputDialog(
+                parent=self,
+                title="New Asset",
+                message=f"Type: {selected_type}\n\nEnter asset name:",
+                initial_value="",
+                placeholder="e.g., Phoenix, Table, Tree"
             )
             
-            if result[0] != 0:  # Cancelled
+            if not input_dialog.exec_():
                 return
             
-            asset_name = result[1].strip()
+            asset_name = input_dialog.get_value()
             if not asset_name:
                 hou.ui.displayMessage("Asset name cannot be empty.", severity=hou.severityType.Warning)
                 return
@@ -1158,21 +1157,21 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             project_path = os.path.join(root, project)
             
-            # Ask for shot name (format: sq###_sh####)
-            result = hou.ui.readInput(
-                "Enter shot name:\n\nFormat: sq010_sh0010\n(Sequence + Shot number)",
-                buttons=("Create", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=1,
-                title="New Shot - Name",
-                initial_contents="sq010_sh0010"
+            # Ask for shot name (using custom styled dialog)
+            from .ui import InputDialog
+            
+            input_dialog = InputDialog(
+                parent=self,
+                title="New Shot",
+                message="Enter shot name:\n\nFormat: sq010_sh0010 (Sequence + Shot number)",
+                initial_value="sq010_sh0010",
+                placeholder="sq010_sh0010"
             )
             
-            if result[0] != 0:  # Cancelled
+            if not input_dialog.exec_():
                 return
             
-            shot_name = result[1].strip()
+            shot_name = input_dialog.get_value()
             if not shot_name:
                 hou.ui.displayMessage("Shot name cannot be empty.", severity=hou.severityType.Warning)
                 return
