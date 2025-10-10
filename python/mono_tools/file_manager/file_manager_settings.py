@@ -19,6 +19,216 @@ from .file_manager_helpers import (
     ORG, APP
 )
 
+class AssetTypeDialog(QtWidgets.QDialog):
+    """Custom dialog for adding/editing asset types - File Manager style"""
+    
+    def __init__(self, parent=None, mode="add", current_data=None):
+        super().__init__(parent)
+        self.mode = mode
+        self.current_data = current_data
+        
+        self.setWindowTitle("Add Asset Type" if mode == "add" else "Edit Asset Type")
+        self.setMinimumSize(400, 300)
+        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint, True)
+        
+        self._build_ui()
+        self._apply_styling()
+        
+        if mode == "edit" and current_data:
+            self._load_current_data()
+    
+    def _build_ui(self):
+        """Build the dialog UI"""
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+        
+        # Title
+        title = QtWidgets.QLabel("Asset Type Configuration")
+        font = title.font()
+        font.setPointSize(16)
+        font.setBold(True)
+        title.setFont(font)
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        # Input fields
+        fields_layout = QtWidgets.QFormLayout()
+        fields_layout.setSpacing(10)
+        
+        # Folder name
+        self.folder_edit = QtWidgets.QLineEdit()
+        self.folder_edit.setPlaceholderText("e.g., _vehicles")
+        self.folder_edit.textChanged.connect(self._on_folder_changed)
+        fields_layout.addRow("📁 Folder Name:", self.folder_edit)
+        
+        # Display name
+        self.name_edit = QtWidgets.QLineEdit()
+        self.name_edit.setPlaceholderText("e.g., Vehicles")
+        fields_layout.addRow("🏷️ Display Name:", self.name_edit)
+        
+        # Prefix
+        self.prefix_edit = QtWidgets.QLineEdit()
+        self.prefix_edit.setPlaceholderText("e.g., veh_")
+        fields_layout.addRow("🔤 Prefix:", self.prefix_edit)
+        
+        layout.addLayout(fields_layout)
+        
+        # Preview
+        preview_group = QtWidgets.QGroupBox("Preview")
+        preview_layout = QtWidgets.QVBoxLayout(preview_group)
+        
+        self.preview_label = QtWidgets.QLabel("Folder: _vehicles\nDisplay: Vehicles\nPrefix: veh_")
+        self.preview_label.setStyleSheet("""
+            QLabel {
+                background: #1e1e1e;
+                color: #ddd;
+                padding: 10px;
+                border-radius: 4px;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 11pt;
+            }
+        """)
+        preview_layout.addWidget(self.preview_label)
+        
+        layout.addWidget(preview_group)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.save_btn = QtWidgets.QPushButton("💾 Save")
+        self.save_btn.clicked.connect(self.accept)
+        self.save_btn.setDefault(True)
+        button_layout.addWidget(self.save_btn)
+        
+        self.cancel_btn = QtWidgets.QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def _apply_styling(self):
+        """Apply File Manager style"""
+        self.setStyleSheet("""
+            QDialog {
+                background: #2a2a2a;
+                color: #e5e5e5;
+            }
+            QLineEdit {
+                background: #1e1e1e;
+                border: 2px solid #555;
+                border-radius: 4px;
+                padding: 8px;
+                color: #e5e5e5;
+                font-size: 11pt;
+            }
+            QLineEdit:focus {
+                border-color: #0078d4;
+            }
+            QPushButton {
+                background: #0078d4;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background: #106ebe;
+            }
+            QPushButton:pressed {
+                background: #005a9e;
+            }
+            QPushButton#cancel_btn {
+                background: #6c757d;
+            }
+            QPushButton#cancel_btn:hover {
+                background: #5a6268;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #555;
+                border-radius: 4px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """)
+        
+        self.cancel_btn.setObjectName("cancel_btn")
+    
+    def _on_folder_changed(self, text):
+        """Auto-generate name and prefix when folder changes"""
+        if not text.strip():
+            return
+        
+        # Generate smart defaults
+        folder = text.strip()
+        
+        # Display name: Remove underscore, capitalize
+        name = folder.replace('_', '').title()
+        if name.startswith('Char'):
+            name = name.replace('Char', 'Character')
+        elif name.startswith('Prop'):
+            name = name.replace('Prop', 'Prop')
+        elif name.startswith('Env'):
+            name = name.replace('Env', 'Environment')
+        elif name.startswith('Veh'):
+            name = name.replace('Veh', 'Vehicle')
+        
+        # Prefix: Remove underscore, add underscore at end
+        prefix = folder.replace('_', '') + '_'
+        if prefix.startswith('Character'):
+            prefix = 'char_'
+        elif prefix.startswith('Prop'):
+            prefix = 'prop_'
+        elif prefix.startswith('Environment'):
+            prefix = 'env_'
+        elif prefix.startswith('Vehicle'):
+            prefix = 'veh_'
+        
+        # Update fields if they're empty or match old pattern
+        if not self.name_edit.text() or self.name_edit.text() == self._last_generated_name:
+            self.name_edit.setText(name)
+            self._last_generated_name = name
+        
+        if not self.prefix_edit.text() or self.prefix_edit.text() == self._last_generated_prefix:
+            self.prefix_edit.setText(prefix)
+            self._last_generated_prefix = prefix
+        
+        self._update_preview()
+    
+    def _update_preview(self):
+        """Update preview text"""
+        folder = self.folder_edit.text() or "_vehicles"
+        name = self.name_edit.text() or "Vehicles"
+        prefix = self.prefix_edit.text() or "veh_"
+        
+        preview = f"Folder: {folder}\nDisplay: {name}\nPrefix: {prefix}"
+        self.preview_label.setText(preview)
+    
+    def _load_current_data(self):
+        """Load current data for editing"""
+        if self.current_data:
+            self.folder_edit.setText(self.current_data.get('id', ''))
+            self.name_edit.setText(self.current_data.get('name', ''))
+            self.prefix_edit.setText(self.current_data.get('prefix', ''))
+            self._update_preview()
+    
+    def get_values(self):
+        """Get the entered values"""
+        return (
+            self.folder_edit.text().strip(),
+            self.name_edit.text().strip(),
+            self.prefix_edit.text().strip()
+        )
+
 class CustomTemplateDialog(QtWidgets.QDialog):
     """Dialog for editing custom template structure"""
     
@@ -509,93 +719,36 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 self.asset_type_list.addItem(item)
     
     def _add_asset_type(self):
-        """Add new asset type - single dialog with smart defaults"""
-        result = hou.ui.readInput(
-            "Enter asset type folder name (e.g., _vehicles):",
-            buttons=("Next", "Cancel"),
-            title="Add Asset Type"
-        )
+        """Add new asset type - custom dialog with 3 input fields"""
+        dialog = AssetTypeDialog(self, mode="add")
+        if dialog.exec_():
+            type_id, type_name, prefix = dialog.get_values()
         
-        if result[0] != 0:
-            return
-        
-        type_id = result[1].strip()
-        if not type_id:
-            return
-        
-        # Generate smart defaults
-        # Display name: Remove underscore, capitalize
-        type_name = type_id.replace('_', '').title()
-        if type_name.startswith('Char'):
-            type_name = type_name.replace('Char', 'Character')
-        elif type_name.startswith('Prop'):
-            type_name = type_name.replace('Prop', 'Prop')
-        elif type_name.startswith('Env'):
-            type_name = type_name.replace('Env', 'Environment')
-        elif type_name.startswith('Veh'):
-            type_name = type_name.replace('Veh', 'Vehicle')
-        
-        # Prefix: Remove underscore, add underscore at end
-        prefix = type_id.replace('_', '') + '_'
-        if prefix.startswith('Character'):
-            prefix = 'char_'
-        elif prefix.startswith('Prop'):
-            prefix = 'prop_'
-        elif prefix.startswith('Environment'):
-            prefix = 'env_'
-        elif prefix.startswith('Vehicle'):
-            prefix = 'veh_'
-        
-        # Single dialog with smart defaults
-        result = hou.ui.readInput(
-            f"Add Asset Type:\n\n"
-            f"Folder: {type_id}\n"
-            f"Display Name: {type_name}\n"
-            f"Prefix: {prefix}\n\n"
-            f"Edit if needed:",
-            buttons=("Save", "Cancel"),
-            initial_contents=f"{type_name}\n{prefix}",
-            title="Add Asset Type"
-        )
-        
-        if result[0] != 0:
-            return
-        
-        # Parse result (2 lines: name, prefix)
-        lines = result[1].strip().split('\n')
-        if len(lines) >= 2:
-            type_name = lines[0].strip()
-            prefix = lines[1].strip()
-        else:
-            # Fallback if user didn't enter 2 lines
-            type_name = lines[0].strip() if lines else type_name
-            prefix = prefix  # Keep default
-        
-        # Add to config
-        config = load_department_config()
-        if not config:
-            config = {}
-        if 'asset_types' not in config:
-            config['asset_types'] = []
-        
-        new_type = {
-            "id": type_id,
-            "name": type_name,
-            "prefix": prefix,
-            "icon": "📁",
-            "description": f"{type_name} assets"
-        }
-        
-        config['asset_types'].append(new_type)
-        config['version'] = "2.0"
-        config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
-        
-        success, message = save_department_config(config)
-        if success:
-            self._load_asset_types()
-            hou.ui.displayMessage(f"Asset type added!\n\n{type_id} → {prefix}... ({type_name})", severity=hou.severityType.Message)
-        else:
-            hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+            # Add to config
+            config = load_department_config()
+            if not config:
+                config = {}
+            if 'asset_types' not in config:
+                config['asset_types'] = []
+            
+            new_type = {
+                "id": type_id,
+                "name": type_name,
+                "prefix": prefix,
+                "icon": "📁",
+                "description": f"{type_name} assets"
+            }
+            
+            config['asset_types'].append(new_type)
+            config['version'] = "2.0"
+            config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+            
+            success, message = save_department_config(config)
+            if success:
+                self._load_asset_types()
+                hou.ui.displayMessage(f"Asset type added!\n\n{type_id} → {prefix}... ({type_name})", severity=hou.severityType.Message)
+            else:
+                hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
     
     def _edit_asset_type(self):
         """Edit selected asset type"""
@@ -606,36 +759,29 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         
         atype = current_item.data(QtCore.Qt.UserRole)
         
-        # Edit prefix
-        result = hou.ui.readInput(
-            f"Asset Type: {atype['id']} ({atype['name']})\n\nEnter new prefix:",
-            buttons=("Save", "Cancel"),
-            initial_contents=atype.get('prefix', ''),
-            title="Edit Asset Type"
-        )
+        # Open edit dialog
+        dialog = AssetTypeDialog(self, mode="edit", current_data=atype)
+        if dialog.exec_():
+            type_id, type_name, prefix = dialog.get_values()
         
-        if result[0] != 0:
-            return
-        
-        new_prefix = result[1].strip()
-        
-        # Update config
-        config = load_department_config()
-        if config and 'asset_types' in config:
-            for at in config['asset_types']:
-                if at['id'] == atype['id']:
-                    at['prefix'] = new_prefix
-                    break
-            
-            config['version'] = "2.0"
-            config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
-            
-            success, message = save_department_config(config)
-            if success:
-                self._load_asset_types()
-                hou.ui.displayMessage(f"Asset type updated!", severity=hou.severityType.Message)
-            else:
-                hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+            # Update config
+            config = load_department_config()
+            if config and 'asset_types' in config:
+                for at in config['asset_types']:
+                    if at['id'] == atype['id']:
+                        at['name'] = type_name
+                        at['prefix'] = prefix
+                        break
+                
+                config['version'] = "2.0"
+                config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+                
+                success, message = save_department_config(config)
+                if success:
+                    self._load_asset_types()
+                    hou.ui.displayMessage(f"Asset type updated!", severity=hou.severityType.Message)
+                else:
+                    hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
     
     def _remove_asset_type(self):
         """Remove selected asset type"""
