@@ -9,12 +9,14 @@ from .material_loader import show_material_loader
 def add_material_loader_to_menu():
     """Thêm Material Loader vào menu Houdini"""
     try:
-        # Get main window and menu bar using Qt
+        # Get main window
         main_window = hou.qt.mainWindow()
         if not main_window:
             return False
         
-        menu_bar = main_window.menuBar()
+        # Find menu bar - it's a child of main window
+        from mono_tools.qt import QtWidgets
+        menu_bar = main_window.findChild(QtWidgets.QMenuBar)
         if not menu_bar:
             return False
         
