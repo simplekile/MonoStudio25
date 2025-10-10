@@ -242,7 +242,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.s.setValue("minibar_locked", self._locked)
         self.s.sync()
         self._update_lock_visual_feedback()
-        print(f"🔒 MiniBar {'locked' if self._locked else 'unlocked'}")
     
     def _reset_position(self):
         """Reset to default position"""
@@ -254,7 +253,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         # Move to default position (same logic as initial load)
         default_x, default_y = self._get_default_position()
         self.move(default_x, default_y)
-        print(f"📍 MiniBar reset to default position: ({default_x}, {default_y})")
     
     def _close_minibar(self):
         """Close MiniBar"""
@@ -501,7 +499,6 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 self.s.setValue("minibar_offset_x", offset_x); self.s.setValue("minibar_offset_y", offset_y)
                 self.s.setValue("minibar_rel_x", rel_x); self.s.setValue("minibar_rel_y", rel_y)
                 self.s.setValue("minibar_abs_x", my_pos.x()); self.s.setValue("minibar_abs_y", my_pos.y()); self.s.sync()
-                print(f"📍 MiniBar rel position: ({rel_x:.3f}, {rel_y:.3f}) | pos({my_pos.x()}, {my_pos.y()}) | offset({offset_x}, {offset_y})")
         except Exception as e:
             if os.environ.get('MONO_DEBUG'): print(f"⚠️ Failed to save minibar position: {e}")
 
@@ -576,15 +573,12 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             if saved_x != -1 and saved_y != -1:
                 # Use saved position
                 self.move(saved_x, saved_y)
-                print(f"📍 MiniBar restored to saved position: ({saved_x}, {saved_y})")
             else:
                 # Use default position
                 default_x, default_y = self._get_default_position()
                 self.move(default_x, default_y)
-                print(f"📍 MiniBar positioned at default: ({default_x}, {default_y})")
                     
         except Exception as e:
-            print(f"⚠️ Error restoring position: {e}")
             # Fallback position
             self.move(20, 80)
 
@@ -593,9 +587,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         if not mw: return
         geo=mw.geometry(); self.adjustSize()
         new_x = geo.x() + int(0.915 * geo.width()) - self.width(); new_y = geo.y() + int(0.000 * geo.height())
-        self.move(new_x, new_y); final_pos = self.pos()
-        final_rel_x = (final_pos.x() + self.width() - geo.x()) / geo.width(); final_rel_y = (final_pos.y() - geo.y()) / geo.height()
-        print(f"🎯 Snap to default: rel({final_rel_x:.3f}, {final_rel_y:.3f}) | pos({final_pos.x()}, {final_pos.y()})")
+        self.move(new_x, new_y)
         self._save_relative_position()
 
     def _update_lock_visual_feedback(self):
