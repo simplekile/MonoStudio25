@@ -1,0 +1,66 @@
+{
+  "departments": [
+    {
+      "id": "01_layout",
+      "name": "Layout",
+      "icon": "📐",
+      "description": "Camera layout and blocking",
+      "software_folders": ["maya", "houdini"],
+      "create_publish": true,
+      "depends_on": []
+    },
+    {
+      "id": "02_animation",
+      "name": "Animation",
+      "icon": "🎭",
+      "description": "Character and object animation",
+      "software_folders": ["maya", "houdini"],
+      "create_publish": true,
+      "depends_on": ["01_layout"]
+    },
+    {
+      "id": "03_fx",
+      "name": "FX",
+      "icon": "💥",
+      "description": "Effects and simulations",
+      "software_folders": ["houdini"],
+      "create_publish": true,
+      "depends_on": ["02_animation"],
+      "subdepartments": [
+        {
+          "id": "01_sim",
+          "name": "Simulation",
+          "create_publish": true
+        },
+        {
+          "id": "02_render",
+          "name": "Render",
+          "create_publish": false
+        }
+      ]
+    },
+    {
+      "id": "04_lighting",
+      "name": "Lighting",
+      "icon": "💡",
+      "description": "Lighting and rendering",
+      "software_folders": ["houdini"],
+      "create_publish": true,
+      "depends_on": ["03_fx"]
+    },
+    {
+      "id": "05_comp",
+      "name": "Compositing",
+      "icon": "🎨",
+      "description": "Final compositing",
+      "software_folders": ["nuke", "fusion"],
+      "create_publish": true,
+      "depends_on": ["04_lighting"]
+    }
+  ],
+  "version": "1.0",
+  "last_modified": "2025-01-27",
+  "type": "shot_departments",
+  "description": "Department configuration for shot production pipeline with dependencies"
+}
+
