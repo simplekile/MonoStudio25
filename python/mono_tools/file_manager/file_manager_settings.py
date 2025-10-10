@@ -19,6 +19,136 @@ from .file_manager_helpers import (
     ORG, APP
 )
 
+class CustomTemplateDialog(QtWidgets.QDialog):
+    """Dialog for editing custom template structure"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Customize Template")
+        self.setMinimumSize(700, 600)
+        
+        layout = QtWidgets.QVBoxLayout(self)
+        
+        # Description
+        desc = QtWidgets.QLabel(
+            "Advanced editor - Add/Edit/Remove departments and configure software folders."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("QLabel { color: #aaa; padding: 8px; background: #2a2a2a; border-radius: 4px; }")
+        layout.addWidget(desc)
+        
+        # Department list
+        dept_group = QtWidgets.QGroupBox("Departments")
+        dept_layout = QtWidgets.QVBoxLayout(dept_group)
+        
+        self.dept_list = QtWidgets.QListWidget()
+        dept_layout.addWidget(self.dept_list)
+        
+        # Buttons
+        btn_layout = QtWidgets.QHBoxLayout()
+        
+        add_btn = QtWidgets.QPushButton("➕ Add")
+        add_btn.clicked.connect(self._add_department)
+        btn_layout.addWidget(add_btn)
+        
+        edit_btn = QtWidgets.QPushButton("✏️ Edit")
+        edit_btn.clicked.connect(self._edit_department)
+        btn_layout.addWidget(edit_btn)
+        
+        remove_btn = QtWidgets.QPushButton("🗑️ Remove")
+        remove_btn.clicked.connect(self._remove_department)
+        btn_layout.addWidget(remove_btn)
+        
+        btn_layout.addStretch()
+        
+        move_up_btn = QtWidgets.QPushButton("⬆️ Up")
+        move_up_btn.clicked.connect(self._move_up)
+        btn_layout.addWidget(move_up_btn)
+        
+        move_down_btn = QtWidgets.QPushButton("⬇️ Down")
+        move_down_btn.clicked.connect(self._move_down)
+        btn_layout.addWidget(move_down_btn)
+        
+        dept_layout.addLayout(btn_layout)
+        layout.addWidget(dept_group)
+        
+        # Dialog buttons
+        button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel
+        )
+        button_box.accepted.connect(self._save_and_close)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        
+        # Load current config
+        self._load_departments()
+    
+    def _load_departments(self):
+        """Load departments from config"""
+        self.dept_list.clear()
+        config = load_department_config()
+        if config and 'standard_departments' in config:
+            for dept in config['standard_departments']:
+                item = QtWidgets.QListWidgetItem(f"{dept.get('icon', '📁')} {dept['id']} - {dept['name']}")
+                item.setData(QtCore.Qt.UserRole, dept)
+                self.dept_list.addItem(item)
+    
+    def _add_department(self):
+        """Add new department"""
+        hou.ui.displayMessage("Add department feature - to be implemented", title="Coming Soon")
+    
+    def _edit_department(self):
+        """Edit selected department"""
+        hou.ui.displayMessage("Edit department feature - to be implemented", title="Coming Soon")
+    
+    def _remove_department(self):
+        """Remove selected department"""
+        current_row = self.dept_list.currentRow()
+        if current_row >= 0:
+            self.dept_list.takeItem(current_row)
+    
+    def _move_up(self):
+        """Move department up"""
+        current_row = self.dept_list.currentRow()
+        if current_row > 0:
+            item = self.dept_list.takeItem(current_row)
+            self.dept_list.insertItem(current_row - 1, item)
+            self.dept_list.setCurrentRow(current_row - 1)
+    
+    def _move_down(self):
+        """Move department down"""
+        current_row = self.dept_list.currentRow()
+        if current_row < self.dept_list.count() - 1 and current_row >= 0:
+            item = self.dept_list.takeItem(current_row)
+            self.dept_list.insertItem(current_row + 1, item)
+            self.dept_list.setCurrentRow(current_row + 1)
+    
+    def _save_and_close(self):
+        """Save configuration and close"""
+        departments = []
+        for i in range(self.dept_list.count()):
+            item = self.dept_list.item(i)
+            dept = item.data(QtCore.Qt.UserRole)
+            departments.append(dept)
+        
+        config = {
+            "standard_departments": departments,
+            "version": "2.0",
+            "last_modified": datetime.now().strftime("%Y-%m-%d")
+        }
+        
+        # Also preserve asset_types if exists
+        current_config = load_department_config()
+        if current_config and 'asset_types' in current_config:
+            config['asset_types'] = current_config['asset_types']
+        
+        success, message = save_department_config(config)
+        if success:
+            hou.ui.displayMessage("Template saved!", severity=hou.severityType.Message)
+            self.accept()
+        else:
+            hou.ui.displayMessage(f"Save failed:\n{message}", severity=hou.severityType.Error)
+
 class FileTableModel(QtGui.QStandardItemModel):
     """Table model for file preview (working files only)"""
     
@@ -209,73 +339,67 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         return tab
     
     def _build_department_tab(self):
-        """Build Department Structure editor tab"""
+        """Build Project Structure tab with template selection"""
         tab = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(tab)
         layout.setContentsMargins(8, 8, 8, 8)
         
         # Description
         desc = QtWidgets.QLabel(
-            "Configure standard department folders for new assets.\n"
-            "These folders will be created automatically when using 'New Folder' feature."
+            "Configure folder structure for new assets.\n"
+            "Choose a template or customize your own structure."
         )
         desc.setWordWrap(True)
         desc.setStyleSheet("QLabel { color: #aaa; padding: 8px; background: #2a2a2a; border-radius: 4px; }")
         layout.addWidget(desc)
         
-        # Department list
-        dept_group = QtWidgets.QGroupBox("Standard Departments")
-        dept_layout = QtWidgets.QVBoxLayout(dept_group)
+        # Template selection
+        template_group = QtWidgets.QGroupBox("📋 Template")
+        template_layout = QtWidgets.QHBoxLayout(template_group)
         
-        # List widget
-        self.dept_list = QtWidgets.QListWidget()
-        self.dept_list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        dept_layout.addWidget(self.dept_list)
+        template_layout.addWidget(QtWidgets.QLabel("Select Template:"))
         
-        # Buttons
-        btn_layout = QtWidgets.QHBoxLayout()
+        self.template_combo = QtWidgets.QComboBox()
+        self.template_combo.addItems([
+            "Default (7 departments + publish folders)",
+            "Simple (3 departments: modeling, rigging, surfacing)",
+            "Custom (edit your own)"
+        ])
+        self.template_combo.currentIndexChanged.connect(self._on_template_changed)
+        template_layout.addWidget(self.template_combo, 1)
         
-        add_btn = QtWidgets.QPushButton("➕ Add Department")
-        add_btn.clicked.connect(self._add_department)
-        btn_layout.addWidget(add_btn)
+        customize_btn = QtWidgets.QPushButton("✏️ Customize")
+        customize_btn.clicked.connect(self._customize_template)
+        template_layout.addWidget(customize_btn)
         
-        edit_btn = QtWidgets.QPushButton("✏️ Edit")
-        edit_btn.clicked.connect(self._edit_department)
-        btn_layout.addWidget(edit_btn)
+        layout.addWidget(template_group)
         
-        remove_btn = QtWidgets.QPushButton("🗑️ Remove")
-        remove_btn.clicked.connect(self._remove_department)
-        btn_layout.addWidget(remove_btn)
+        # Structure preview
+        preview_group = QtWidgets.QGroupBox("📁 Folder Structure Preview")
+        preview_layout = QtWidgets.QVBoxLayout(preview_group)
         
-        btn_layout.addStretch()
+        self.structure_preview = QtWidgets.QTextEdit()
+        self.structure_preview.setReadOnly(True)
+        self.structure_preview.setMaximumHeight(400)
+        self.structure_preview.setStyleSheet("""
+            QTextEdit {
+                background: #1e1e1e;
+                color: #ddd;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 11pt;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        preview_layout.addWidget(self.structure_preview)
         
-        move_up_btn = QtWidgets.QPushButton("⬆️ Move Up")
-        move_up_btn.clicked.connect(self._move_department_up)
-        btn_layout.addWidget(move_up_btn)
+        layout.addWidget(preview_group)
         
-        move_down_btn = QtWidgets.QPushButton("⬇️ Move Down")
-        move_down_btn.clicked.connect(self._move_department_down)
-        btn_layout.addWidget(move_down_btn)
+        # Load and show default template
+        self._load_template_preview(0)
         
-        dept_layout.addLayout(btn_layout)
-        layout.addWidget(dept_group)
-        
-        # Actions
-        action_layout = QtWidgets.QHBoxLayout()
-        action_layout.addStretch()
-        
-        save_btn = QtWidgets.QPushButton("💾 Save Configuration")
-        save_btn.clicked.connect(self._save_department_config)
-        action_layout.addWidget(save_btn)
-        
-        reset_btn = QtWidgets.QPushButton("🔄 Reset to Defaults")
-        reset_btn.clicked.connect(self._reset_department_config)
-        action_layout.addWidget(reset_btn)
-        
-        layout.addLayout(action_layout)
-        
-        # Load departments
-        self._load_departments()
+        layout.addStretch()
         
         return tab
     
@@ -318,6 +442,87 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         layout.addStretch()
         
         return tab
+    
+    # ================ Template Methods ================
+    
+    def _on_template_changed(self, index):
+        """Handle template selection change"""
+        self._load_template_preview(index)
+    
+    def _load_template_preview(self, template_index):
+        """Load and display template structure preview"""
+        if template_index == 0:  # Default
+            preview = self._get_default_template_preview()
+        elif template_index == 1:  # Simple
+            preview = self._get_simple_template_preview()
+        else:  # Custom
+            preview = self._get_custom_template_preview()
+        
+        self.structure_preview.setPlainText(preview)
+    
+    def _get_default_template_preview(self):
+        """Get default template structure"""
+        config = load_department_config()
+        
+        preview = "Example: Hero_Phoenix/\n\n"
+        
+        if config and 'standard_departments' in config:
+            for dept in config['standard_departments']:
+                dept_id = dept['id']
+                dept_name = dept['name']
+                icon = dept.get('icon', '📁')
+                software_folders = dept.get('software_folders', [])
+                create_publish = dept.get('create_publish', False)
+                
+                preview += f"{icon} {dept_id}/ ({dept_name})\n"
+                
+                # Software subfolders
+                if software_folders:
+                    for sw in software_folders:
+                        preview += f"  ├─ {sw}/\n"
+                
+                # Publish folder
+                if create_publish:
+                    if software_folders:
+                        preview += f"  └─ _publish/\n"
+                    else:
+                        preview += f"  └─ _publish/\n"
+                
+                preview += "\n"
+        
+        return preview
+    
+    def _get_simple_template_preview(self):
+        """Get simple template structure"""
+        return """Example: Hero_Phoenix/
+
+🎨 01_modeling/ (Modeling)
+  ├─ houdini/
+  ├─ maya/
+  ├─ zbrush/
+  └─ _publish/
+
+🦴 02_rigging/ (Rigging)
+  └─ _publish/
+
+🎭 03_surfacing/ (Surfacing)
+  ├─ houdini/
+  ├─ substance/
+  ├─ mari/
+  └─ _publish/
+"""
+    
+    def _get_custom_template_preview(self):
+        """Get custom template structure (from saved config)"""
+        return self._get_default_template_preview() + "\n[Custom configuration - click 'Customize' to edit]"
+    
+    def _customize_template(self):
+        """Open advanced editor for custom template"""
+        dialog = CustomTemplateDialog(self)
+        if dialog.exec_():
+            # Reload preview
+            self.template_combo.setCurrentIndex(2)  # Set to Custom
+            self._load_template_preview(2)
     
     # ================ Department Editor Methods ================
     
