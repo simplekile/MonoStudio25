@@ -1,0 +1,139 @@
+{
+  "asset_types": [
+    {
+      "id": "_characters",
+      "name": "Characters",
+      "prefix": "Hero_",
+      "icon": "🧑",
+      "description": "Character assets"
+    },
+    {
+      "id": "_environments",
+      "name": "Environments",
+      "prefix": "env_",
+      "icon": "🏞️",
+      "description": "Environment assets"
+    },
+    {
+      "id": "_graphic",
+      "name": "Graphic",
+      "prefix": "",
+      "icon": "🎨",
+      "description": "Graphic design assets"
+    }
+  ],
+  "standard_departments": [
+    {
+      "id": "01_modeling",
+      "name": "Modeling",
+      "icon": "🎨",
+      "description": "Geometry and modeling work",
+      "subdepartments": [
+        {
+          "id": "01_sculpt",
+          "name": "Sculpt",
+          "create_publish": true
+        },
+        {
+          "id": "02_retopo",
+          "name": "Retopo",
+          "create_publish": true
+        },
+        {
+          "id": "03_uv",
+          "name": "UV",
+          "create_publish": false
+        }
+      ],
+      "create_publish": true
+    },
+    {
+      "id": "02_rigging",
+      "name": "Rigging",
+      "icon": "🦴",
+      "description": "Character rigging and setup",
+      "subdepartments": [],
+      "create_publish": true
+    },
+    {
+      "id": "03_surfacing",
+      "name": "Surfacing",
+      "icon": "🎭",
+      "description": "Materials and texturing",
+      "subdepartments": [
+        {
+          "id": "01_texture",
+          "name": "Texture",
+          "create_publish": false
+        }
+      ],
+      "create_publish": true
+    },
+    {
+      "id": "04_lookdev",
+      "name": "LookDev",
+      "icon": "💡",
+      "description": "Look development and shading",
+      "subdepartments": [],
+      "create_publish": false
+    },
+    {
+      "id": "05_groom",
+      "name": "Groom",
+      "icon": "✂️",
+      "description": "Hair and fur grooming",
+      "subdepartments": [],
+      "create_publish": true
+    },
+    {
+      "id": "06_anim",
+      "name": "Animation",
+      "icon": "🎬",
+      "description": "Animation work",
+      "subdepartments": [],
+      "create_publish": false
+    },
+    {
+      "id": "06_cloth",
+      "name": "Cloth",
+      "icon": "👔",
+      "description": "Cloth simulation",
+      "subdepartments": [],
+      "create_publish": false
+    },
+    {
+      "id": "99_archive",
+      "name": "Archive",
+      "icon": "📦",
+      "description": "Archived files",
+      "subdepartments": [],
+      "create_publish": false
+    }
+  ],
+  "shot_departments": [
+    {
+      "id": "01_animation",
+      "name": "Animation",
+      "icon": "🎬"
+    },
+    {
+      "id": "02_sim",
+      "name": "Simulation",
+      "icon": "💨"
+    },
+    {
+      "id": "03_lighting",
+      "name": "Lighting",
+      "icon": "💡"
+    },
+    {
+      "id": "04_comp",
+      "name": "Compositing",
+      "icon": "🎞️"
+    }
+  ],
+  "version": "2.0",
+  "last_modified": "2024-12-19",
+  "notes": "Based on D:/Dropbox/Stock/Template/Folder Structure/250724_ProjectDemo"
+}
+

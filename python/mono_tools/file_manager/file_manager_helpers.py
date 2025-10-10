@@ -614,7 +614,7 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
         if config and 'standard_departments' in config:
             dept_map = {d['id']: d for d in config['standard_departments']}
         
-        # Create all department folders (with software subfolders if configured)
+        # Create all department folders (with software subfolders + publish if configured)
         created_structure = []
         for dept_id in departments:
             dept_path = os.path.join(asset_folder, dept_id)
@@ -622,6 +622,7 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
             # Get department config
             dept_config = dept_map.get(dept_id, {})
             software_folders = dept_config.get('software_folders', [])
+            create_publish = dept_config.get('create_publish', False)
             
             if software_folders:
                 # Create software subfolders
@@ -629,10 +630,22 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
                     software_path = os.path.join(dept_path, software)
                     os.makedirs(software_path, exist_ok=True)
                     created_structure.append(f"{dept_id}/{software}")
+                
+                # Also create publish folder at department level
+                if create_publish:
+                    publish_path = os.path.join(dept_path, "_publish")
+                    os.makedirs(publish_path, exist_ok=True)
+                    created_structure.append(f"{dept_id}/_publish")
             else:
                 # Just create department folder
                 os.makedirs(dept_path, exist_ok=True)
                 created_structure.append(dept_id)
+                
+                # Create publish subfolder if configured
+                if create_publish:
+                    publish_path = os.path.join(dept_path, "_publish")
+                    os.makedirs(publish_path, exist_ok=True)
+                    created_structure.append(f"{dept_id}/_publish")
         
         # Build success message with structure details
         success_msg = f"Asset folder created successfully!\n\n"

@@ -596,7 +596,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         
         # Show final position after restore (once only)
         final_pos = self.pos()
-        print(f"📍 MiniBar positioned at ({final_pos.x()}, {final_pos.y()})")
+        debug_print(f"📍 MiniBar positioned at ({final_pos.x()}, {final_pos.y()})")
         
         # Apply initial lock visual feedback
         self._update_lock_visual_feedback()
@@ -911,8 +911,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 
                 self.s.sync()
                 
-                # Debug info - always print relative position
-                print(f"📍 MiniBar rel position: ({rel_x:.3f}, {rel_y:.3f}) | pos({my_pos.x()}, {my_pos.y()}) | offset({offset_x}, {offset_y})")
+                # Debug info
+                debug_print(f"📍 MiniBar rel position: ({rel_x:.3f}, {rel_y:.3f}) | pos({my_pos.x()}, {my_pos.y()}) | offset({offset_x}, {offset_y})")
                 if os.environ.get('MONO_DEBUG'):
                     print(f"💾 MiniBar saved: pos({my_pos.x()}, {my_pos.y()}) -> offset({offset_x}, {offset_y}) rel({rel_x:.3f}, {rel_y:.3f}) | Houdini: {hou_geo.width()}x{hou_geo.height()}")
                     

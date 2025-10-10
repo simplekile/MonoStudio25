@@ -3,7 +3,7 @@
     {
       "id": "_characters",
       "name": "Characters",
-      "prefix": "char_",
+      "prefix": "Hero_",
       "icon": "🧑",
       "description": "Character assets"
     },
@@ -35,49 +35,56 @@
       "name": "Modeling",
       "icon": "🎨",
       "description": "Geometry and modeling work",
-      "software_folders": ["houdini", "maya", "zbrush"]
+      "software_folders": ["houdini", "maya", "zbrush"],
+      "create_publish": true
     },
     {
       "id": "02_rigging",
       "name": "Rigging",
       "icon": "🦴",
       "description": "Character rigging and setup",
-      "software_folders": []
+      "software_folders": [],
+      "create_publish": true
     },
     {
       "id": "03_surfacing",
       "name": "Surfacing",
       "icon": "🎭",
       "description": "Materials and texturing",
-      "software_folders": ["houdini", "substance", "mari"]
+      "software_folders": ["houdini", "substance", "mari"],
+      "create_publish": true
     },
     {
       "id": "04_lookdev",
       "name": "LookDev",
       "icon": "💡",
       "description": "Look development and shading",
-      "software_folders": []
+      "software_folders": [],
+      "create_publish": false
     },
     {
       "id": "05_groom",
       "name": "Groom",
       "icon": "✂️",
       "description": "Hair and fur grooming",
-      "software_folders": []
+      "software_folders": [],
+      "create_publish": true
     },
     {
       "id": "06_anim",
       "name": "Animation",
       "icon": "🎬",
       "description": "Animation work",
-      "software_folders": []
+      "software_folders": [],
+      "create_publish": false
     },
     {
       "id": "07_turntable",
       "name": "Turntable",
       "icon": "🔄",
       "description": "Turntable renders",
-      "software_folders": []
+      "software_folders": [],
+      "create_publish": false
     }
   ],
   "version": "2.0",
