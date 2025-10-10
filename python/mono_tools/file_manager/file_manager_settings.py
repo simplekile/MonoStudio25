@@ -509,7 +509,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 self.asset_type_list.addItem(item)
     
     def _add_asset_type(self):
-        """Add new asset type"""
+        """Add new asset type - single dialog with smart defaults"""
         result = hou.ui.readInput(
             "Enter asset type folder name (e.g., _vehicles):",
             buttons=("Next", "Cancel"),
@@ -523,29 +523,53 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         if not type_id:
             return
         
-        # Ask for display name
+        # Generate smart defaults
+        # Display name: Remove underscore, capitalize
+        type_name = type_id.replace('_', '').title()
+        if type_name.startswith('Char'):
+            type_name = type_name.replace('Char', 'Character')
+        elif type_name.startswith('Prop'):
+            type_name = type_name.replace('Prop', 'Prop')
+        elif type_name.startswith('Env'):
+            type_name = type_name.replace('Env', 'Environment')
+        elif type_name.startswith('Veh'):
+            type_name = type_name.replace('Veh', 'Vehicle')
+        
+        # Prefix: Remove underscore, add underscore at end
+        prefix = type_id.replace('_', '') + '_'
+        if prefix.startswith('Character'):
+            prefix = 'char_'
+        elif prefix.startswith('Prop'):
+            prefix = 'prop_'
+        elif prefix.startswith('Environment'):
+            prefix = 'env_'
+        elif prefix.startswith('Vehicle'):
+            prefix = 'veh_'
+        
+        # Single dialog with smart defaults
         result = hou.ui.readInput(
-            f"Folder: {type_id}\n\nEnter display name (e.g., Vehicles):",
-            buttons=("Next", "Cancel"),
-            title="Add Asset Type"
-        )
-        
-        if result[0] != 0:
-            return
-        
-        type_name = result[1].strip()
-        
-        # Ask for prefix
-        result = hou.ui.readInput(
-            f"Folder: {type_id}\nName: {type_name}\n\nEnter prefix (e.g., veh_):",
+            f"Add Asset Type:\n\n"
+            f"Folder: {type_id}\n"
+            f"Display Name: {type_name}\n"
+            f"Prefix: {prefix}\n\n"
+            f"Edit if needed:",
             buttons=("Save", "Cancel"),
+            initial_contents=f"{type_name}\n{prefix}",
             title="Add Asset Type"
         )
         
         if result[0] != 0:
             return
         
-        prefix = result[1].strip()
+        # Parse result (2 lines: name, prefix)
+        lines = result[1].strip().split('\n')
+        if len(lines) >= 2:
+            type_name = lines[0].strip()
+            prefix = lines[1].strip()
+        else:
+            # Fallback if user didn't enter 2 lines
+            type_name = lines[0].strip() if lines else type_name
+            prefix = prefix  # Keep default
         
         # Add to config
         config = load_department_config()
@@ -569,7 +593,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         success, message = save_department_config(config)
         if success:
             self._load_asset_types()
-            hou.ui.displayMessage(f"Asset type added!\n\n{type_id} ({type_name})", severity=hou.severityType.Message)
+            hou.ui.displayMessage(f"Asset type added!\n\n{type_id} → {prefix}... ({type_name})", severity=hou.severityType.Message)
         else:
             hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
     
