@@ -20,7 +20,12 @@ from .file_manager_helpers import (
     ORG, APP
 )
 
-class SmartLineEdit(QtWidgets.QLineEdit):
+# Import reusable UI components
+from .ui import MonoBaseDialog, SmartLineEdit, ConfigManager
+
+# DEPRECATED: SmartLineEdit moved to ui/smart_input.py
+# Keeping this for backwards compatibility during migration
+class SmartLineEdit_OLD(QtWidgets.QLineEdit):
     """LineEdit with Chrome-style inline autocomplete suggestions"""
     
     def __init__(self, suggestions_dict=None, parent=None):
@@ -123,45 +128,39 @@ class SmartLineEdit(QtWidgets.QLineEdit):
             painter.drawText(x, y, f" → {suggestion}")
             painter.end()
 
-class AssetTypeDialog(QtWidgets.QDialog):
-    """Custom dialog for adding/editing asset types - File Manager style"""
+class AssetTypeDialog(MonoBaseDialog):
+    """Custom dialog for adding/editing asset types - Uses MonoBaseDialog for consistent styling"""
     
     def __init__(self, parent=None, mode="add", current_data=None):
-        super().__init__(parent)
+        # Initialize with base dialog
+        title = "Add Asset Type" if mode == "add" else "Edit Asset Type"
+        super().__init__(parent, title=title, min_width=400, min_height=300)
+        
         self.mode = mode
         self.current_data = current_data
         
-        self.setWindowTitle("Add Asset Type" if mode == "add" else "Edit Asset Type")
-        self.setMinimumSize(400, 300)
-        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint, True)
-        
+        # Build UI (styling already applied by base class)
         self._build_ui()
-        self._apply_styling()
         
         if mode == "edit" and current_data:
             self._load_current_data()
     
     def _build_ui(self):
-        """Build the dialog UI"""
+        """Build the dialog UI using base components"""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
-        # Title
-        title = QtWidgets.QLabel("Asset Type Configuration")
-        font = title.font()
-        font.setPointSize(16)
-        font.setBold(True)
-        title.setFont(font)
-        title.setAlignment(QtCore.Qt.AlignCenter)
+        # Title (using base class helper)
+        title = self.create_title_label("Asset Type Configuration", font_size=16)
         layout.addWidget(title)
         
         # Input fields
         fields_layout = QtWidgets.QFormLayout()
         fields_layout.setSpacing(10)
         
-        # Load asset type suggestions from external file
-        suggestions = self._load_asset_type_suggestions()
+        # Load asset type suggestions using ConfigManager
+        suggestions = ConfigManager.load_asset_type_suggestions()
         
         # Smart folder name input with autocomplete
         self.folder_edit = SmartLineEdit(suggestions, self)
@@ -169,9 +168,8 @@ class AssetTypeDialog(QtWidgets.QDialog):
         self.folder_edit.textChanged.connect(self._on_folder_changed)
         fields_layout.addRow("📁 Folder Name:", self.folder_edit)
         
-        # Hint for Tab key
-        hint = QtWidgets.QLabel("💡 Press Tab to accept suggestion")
-        hint.setStyleSheet("QLabel { color: #888; font-size: 9pt; font-style: italic; margin-left: 20px; }")
+        # Hint for Tab key (using base class helper)
+        hint = self.create_hint_label("💡 Press Tab to accept suggestion")
         fields_layout.addRow("", hint)
         
         # Prefix (auto-generated, but editable)
@@ -201,151 +199,15 @@ class AssetTypeDialog(QtWidgets.QDialog):
         
         layout.addWidget(preview_group)
         
-        # Buttons
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
-        
-        self.save_btn = QtWidgets.QPushButton("💾 Save")
-        self.save_btn.clicked.connect(self.accept)
-        self.save_btn.setDefault(True)
-        button_layout.addWidget(self.save_btn)
-        
-        self.cancel_btn = QtWidgets.QPushButton("Cancel")
-        self.cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_btn)
-        
+        # Buttons (using base class helper)
+        button_layout, self.save_btn, self.cancel_btn = self.create_button_layout(
+            ok_text="💾 Save", 
+            cancel_text="Cancel"
+        )
         layout.addLayout(button_layout)
     
-    def _apply_styling(self):
-        """Apply File Manager style"""
-        self.setStyleSheet("""
-            QDialog {
-                background: #2a2a2a;
-                color: #e5e5e5;
-            }
-            QLineEdit {
-                background: #1e1e1e;
-                border: 2px solid #555;
-                border-radius: 4px;
-                padding: 8px;
-                color: #e5e5e5;
-                font-size: 11pt;
-            }
-            QLineEdit:focus {
-                border-color: #0078d4;
-            }
-            QPushButton {
-                background: #0078d4;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-                font-weight: bold;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background: #106ebe;
-            }
-            QPushButton:pressed {
-                background: #005a9e;
-            }
-            QPushButton#cancel_btn {
-                background: #6c757d;
-            }
-            QPushButton#cancel_btn:hover {
-                background: #5a6268;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 2px solid #555;
-                border-radius: 4px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-        
-        self.cancel_btn.setObjectName("cancel_btn")
-    
-    def _load_asset_type_suggestions(self):
-        """Load asset type suggestions from external JSON file"""
-        try:
-            # Get the directory of this file
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
-            
-            if os.path.exists(suggestions_file):
-                with open(suggestions_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('asset_type_suggestions', {})
-            else:
-                # Fallback to default suggestions
-                return {
-                    'char': '_characters',
-                    'prop': '_props',
-                    'env': '_environments',
-                    'veh': '_vehicles',
-                    'weap': '_weapons',
-                    'fx': '_fx'
-                }
-        except Exception as e:
-            print(f"Error loading asset type suggestions: {e}")
-            return {}
-    
-    def _load_prefix_mapping(self):
-        """Load prefix mapping from external JSON file"""
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
-            
-            if os.path.exists(suggestions_file):
-                with open(suggestions_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('prefix_mapping', {})
-            else:
-                # Fallback to default mapping
-                return {
-                    '_characters': 'char_',
-                    '_props': 'prop_',
-                    '_environments': 'env_',
-                    '_vehicles': 'veh_',
-                    '_weapons': 'weap_',
-                    '_fx': 'fx_'
-                }
-        except Exception as e:
-            print(f"Error loading prefix mapping: {e}")
-            return {}
-    
-    def _load_display_name_mapping(self):
-        """Load display name mapping from external JSON file"""
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            suggestions_file = os.path.join(current_dir, 'asset_type_suggestions.json')
-            
-            if os.path.exists(suggestions_file):
-                with open(suggestions_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('display_name_mapping', {})
-            else:
-                # Fallback to default mapping
-                return {
-                    '_characters': 'Character',
-                    '_props': 'Prop',
-                    '_environments': 'Environment',
-                    '_vehicles': 'Vehicle',
-                    '_weapons': 'Weapon',
-                    '_fx': 'FX'
-                }
-        except Exception as e:
-            print(f"Error loading display name mapping: {e}")
-            return {}
-    
     def _on_folder_changed(self, text):
-        """Auto-generate prefix from folder name"""
+        """Auto-generate prefix from folder name using ConfigManager"""
         if not text.strip():
             self.prefix_edit.clear()
             self._update_preview()
@@ -354,8 +216,8 @@ class AssetTypeDialog(QtWidgets.QDialog):
         # Use suggestion if available, otherwise use typed text
         folder = self.folder_edit.current_suggestion if self.folder_edit.current_suggestion else text.strip()
         
-        # Load prefix mapping from external file
-        prefix_mapping = self._load_prefix_mapping()
+        # Load prefix mapping using ConfigManager
+        prefix_mapping = ConfigManager.load_prefix_mapping()
         prefix = prefix_mapping.get(folder, folder.replace('_', '') + '_')
         
         self.prefix_edit.setText(prefix)
@@ -900,7 +762,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             return {}
     
     def _add_asset_type(self):
-        """Add new asset type - smart autocomplete dialog"""
+        """Add new asset type using ConfigManager"""
         dialog = AssetTypeDialog(self, mode="add")
         if dialog.exec_():
             type_id, prefix = dialog.get_values()
@@ -909,17 +771,11 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 hou.ui.displayMessage("Folder name and prefix are required.", severity=hou.severityType.Warning)
                 return
             
-            # Generate display name from folder using mapping
-            display_mapping = self._load_display_name_mapping()
+            # Generate display name using ConfigManager
+            display_mapping = ConfigManager.load_display_name_mapping()
             type_name = display_mapping.get(type_id, type_id.replace('_', '').title())
             
-            # Add to config
-            config = load_department_config()
-            if not config:
-                config = {}
-            if 'asset_types' not in config:
-                config['asset_types'] = []
-            
+            # Create new asset type data
             new_type = {
                 "id": type_id,
                 "name": type_name,
@@ -928,11 +784,9 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 "description": f"{type_name} assets"
             }
             
-            config['asset_types'].append(new_type)
-            config['version'] = "2.0"
-            config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
+            # Save using ConfigManager
+            success, message = ConfigManager.save_asset_type(new_type)
             
-            success, message = save_department_config(config)
             if success:
                 self._load_asset_types()
                 hou.ui.displayMessage(f"Asset type added!\n\n{type_id} → {prefix}...", severity=hou.severityType.Message)
@@ -957,29 +811,27 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
                 hou.ui.displayMessage("Folder name and prefix are required.", severity=hou.severityType.Warning)
                 return
             
-            # Generate display name from folder using mapping
-            display_mapping = self._load_display_name_mapping()
+            # Generate display name using ConfigManager
+            display_mapping = ConfigManager.load_display_name_mapping()
             type_name = display_mapping.get(type_id, type_id.replace('_', '').title())
             
-            # Update config
-            config = load_department_config()
-            if config and 'asset_types' in config:
-                for at in config['asset_types']:
-                    if at['id'] == atype['id']:
-                        at['id'] = type_id  # Allow changing folder name
-                        at['name'] = type_name
-                        at['prefix'] = prefix
-                        break
-                
-                config['version'] = "2.0"
-                config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
-                
-                success, message = save_department_config(config)
-                if success:
-                    self._load_asset_types()
-                    hou.ui.displayMessage(f"Asset type updated!", severity=hou.severityType.Message)
-                else:
-                    hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+            # Create new asset type data
+            new_asset_data = {
+                "id": type_id,
+                "name": type_name,
+                "prefix": prefix,
+                "icon": "📁",
+                "description": f"{type_name} assets"
+            }
+            
+            # Update using ConfigManager
+            success, message = ConfigManager.update_asset_type(atype['id'], new_asset_data)
+            
+            if success:
+                self._load_asset_types()
+                hou.ui.displayMessage(f"Asset type updated!", severity=hou.severityType.Message)
+            else:
+                hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
     
     def _remove_asset_type(self):
         """Remove selected asset type"""
@@ -998,18 +850,14 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
         )
         
         if result == 0:
-            config = load_department_config()
-            if config and 'asset_types' in config:
-                config['asset_types'] = [at for at in config['asset_types'] if at['id'] != atype['id']]
-                config['version'] = "2.0"
-                config['last_modified'] = datetime.now().strftime("%Y-%m-%d")
-                
-                success, message = save_department_config(config)
-                if success:
-                    self._load_asset_types()
-                    hou.ui.displayMessage("Asset type removed!", severity=hou.severityType.Message)
-                else:
-                    hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
+            # Delete using ConfigManager
+            success, message = ConfigManager.delete_asset_type(atype['id'])
+            
+            if success:
+                self._load_asset_types()
+                hou.ui.displayMessage("Asset type removed!", severity=hou.severityType.Message)
+            else:
+                hou.ui.displayMessage(f"Failed to save:\n{message}", severity=hou.severityType.Error)
     
     # ================ Template Methods ================
     
