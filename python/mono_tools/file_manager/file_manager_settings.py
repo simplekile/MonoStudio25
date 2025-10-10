@@ -27,24 +27,40 @@ class SmartLineEdit(QtWidgets.QLineEdit):
         super().__init__(parent)
         self.suggestions_dict = suggestions_dict or {}
         self.current_suggestion = ""
-        print(f"[SmartLineEdit] Initialized with {len(self.suggestions_dict)} suggestions")
+        
+        # Debug: Print all suggestions
+        print(f"\n[SmartLineEdit] === INITIALIZATION ===")
+        print(f"[SmartLineEdit] Total suggestions: {len(self.suggestions_dict)}")
+        if self.suggestions_dict:
+            print(f"[SmartLineEdit] First 5 suggestions:")
+            for i, (k, v) in enumerate(list(self.suggestions_dict.items())[:5]):
+                print(f"  {i+1}. '{k}' -> '{v}'")
+        else:
+            print(f"[SmartLineEdit] WARNING: No suggestions loaded!")
+        print(f"[SmartLineEdit] === END INIT ===\n")
         
     def keyPressEvent(self, event):
         """Handle Tab key to accept suggestion"""
+        print(f"[SmartLineEdit] Key pressed: {event.key()} (Tab={QtCore.Qt.Key_Tab})")
+        
         if event.key() == QtCore.Qt.Key_Tab:
+            print(f"[SmartLineEdit] TAB detected! current_suggestion='{self.current_suggestion}'")
             if self.current_suggestion:
-                # Accept suggestion - DO NOT call focusNextChild()
-                print(f"[SmartLineEdit] Tab pressed - accepting: {self.current_suggestion}")
+                # Accept suggestion - Block default Tab
+                print(f"[SmartLineEdit] >>> ACCEPTING: {self.current_suggestion}")
                 self.setText(self.current_suggestion)
                 self.current_suggestion = ""
                 self.update()
-                event.accept()  # Block default Tab behavior
-                return
+                event.accept()  # This blocks the Tab from moving focus
+                print(f"[SmartLineEdit] >>> Event accepted, focus should NOT move")
+                return  # Important: return early
             else:
-                # No suggestion - allow normal Tab behavior
-                print(f"[SmartLineEdit] Tab pressed - no suggestion, moving to next field")
+                print(f"[SmartLineEdit] No suggestion - allowing normal Tab")
         
+        # Call parent for all other keys
         super().keyPressEvent(event)
+        
+        # Update suggestion after key is processed
         self._update_suggestion()
     
     def _update_suggestion(self):
