@@ -2,7 +2,12 @@ import os
 import subprocess
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import hou
-from .file_manager_helpers import ORG, APP, collect_files, get_current_houdini_file, is_current_file, infer_shot, parse_ver, open_in_explorer, get_render_folder_path, increment_version_and_backup, debug_print, DEBUG
+from .file_manager_helpers import (
+    ORG, APP, collect_files, get_current_houdini_file, is_current_file, 
+    infer_shot, parse_ver, open_in_explorer, get_render_folder_path, 
+    increment_version_and_backup, debug_print, DEBUG,
+    generate_new_filename
+)
 
 class MainWindowEventFilter(QtCore.QObject):
     """Monitor Houdini main window for resize/move events"""
@@ -76,6 +81,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
         self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• Reload Scene\n• Restart Houdini\n• Open File Location\n• Open Render Folder"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
+        self.btn_new=QtWidgets.QToolButton(); self.btn_new.setText("📄"); self.btn_new.setFixedSize(24, 24); self.btn_new.setToolTip("New File\n• Create new asset/shot file\n• Auto-naming based on type/department"); self.btn_new.clicked.connect(self._new_file)
         self.btn_save_version=QtWidgets.QToolButton(); self.btn_save_version.setText("💾"); self.btn_save_version.setFixedSize(24, 24); self.btn_save_version.setToolTip("Save Version\n• Increment version number\n• Move old version to Vers folder"); self.btn_save_version.clicked.connect(self._save_version)
         # Set font to ensure emoji displays correctly
         font = self.btn_save_version.font()
@@ -88,6 +94,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         lay.addWidget(self.type_btn, 0)
         lay.addWidget(self.dept_btn, 0)
         lay.addWidget(self.shot_display, 1)
+        lay.addWidget(self.btn_new, 0)
         lay.addWidget(self.btn_quick_menu, 0)
         lay.addWidget(self.btn_save_version, 0)
         lay.addWidget(self.btn_settings, 0)
@@ -751,6 +758,162 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         except Exception as e:
             hou.ui.displayMessage(f"Failed to restart Houdini:\n{str(e)}", severity=hou.severityType.Error)
 
+    def _new_file(self):
+        """Create new file with auto-naming based on type/department"""
+        try:
+            # Get current selections
+            type_name = self.current_type
+            department = self.current_dept
+            
+            if not type_name:
+                hou.ui.displayMessage(
+                    "Please select a type first.\n\nClick 🏷️ Type button to select.",
+                    severity=hou.severityType.Warning,
+                    title="New File"
+                )
+                return
+            
+            if not department:
+                hou.ui.displayMessage(
+                    "Please select a department first.\n\nClick 📁 Dept button to select.",
+                    severity=hou.severityType.Warning,
+                    title="New File"
+                )
+                return
+            
+            # Get project settings
+            root = self.s.value("project_root", "", type=str)
+            project = self.s.value("current_project", "", type=str)
+            
+            if not root or not project:
+                hou.ui.displayMessage(
+                    "No project configured.\n\nClick ⚙️ Settings to configure project.",
+                    severity=hou.severityType.Warning,
+                    title="New File"
+                )
+                return
+            
+            # Ask for asset/shot name
+            is_assets = self.current_type_is_assets
+            
+            if is_assets:
+                prompt = f"Create new asset file:\n\nType: {type_name}\nDepartment: {department}\n\nEnter asset name (e.g., Cyborg, Chair, Tree):"
+            else:
+                prompt = f"Create new shot file:\n\nType: {type_name}\nDepartment: {department}\n\nEnter shot name (e.g., Sh010, Sh020):"
+            
+            result = hou.ui.readInput(
+                prompt,
+                buttons=("Create", "Cancel"),
+                severity=hou.severityType.Message,
+                default_choice=0,
+                close_choice=1,
+                title="New File"
+            )
+            
+            if result[0] != 0:  # Cancelled
+                return
+            
+            asset_name = result[1].strip()
+            if not asset_name:
+                hou.ui.displayMessage(
+                    "Asset name cannot be empty.",
+                    severity=hou.severityType.Warning,
+                    title="New File"
+                )
+                return
+            
+            # Generate filename
+            filename = generate_new_filename(type_name, asset_name, department, "v001", ".hip")
+            
+            # Determine target directory
+            if is_assets:
+                # Assets: 01_assets/_characters/char_AssetName/01_modeling/
+                # Add prefix if not present
+                if not any(asset_name.lower().startswith(p) for p in ['char_', 'prop_', 'env_', 'veh_']):
+                    # Guess prefix from type
+                    if 'character' in type_name.lower():
+                        asset_name = f"char_{asset_name}"
+                    elif 'prop' in type_name.lower():
+                        asset_name = f"prop_{asset_name}"
+                    elif 'environment' in type_name.lower():
+                        asset_name = f"env_{asset_name}"
+                
+                target_dir = os.path.join(root, project, "01_assets", type_name, asset_name, department)
+            else:
+                # Shots: 02_shots/03_lighting/
+                # Extract subpath from department
+                subpath = os.path.join("02_shots", department)
+                target_dir = os.path.join(root, project, subpath)
+            
+            # Create directory if not exists
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir, exist_ok=True)
+                debug_print(f"📁 Created directory: {target_dir}")
+            
+            # Full file path
+            filepath = os.path.join(target_dir, filename)
+            
+            # Check if file already exists
+            if os.path.exists(filepath):
+                choice = hou.ui.displayMessage(
+                    f"File already exists:\n{filename}\n\nDo you want to open it instead?",
+                    buttons=("Open", "Cancel"),
+                    severity=hou.severityType.Warning,
+                    default_choice=0,
+                    close_choice=1,
+                    title="File Exists"
+                )
+                
+                if choice == 0:
+                    # Open existing file
+                    hou.hipFile.load(filepath, suppress_save_prompt=True)
+                    hou.ui.setStatusMessage(f"Opened: {filename}", severity=hou.severityType.Message)
+                return
+            
+            # Save current scene if has unsaved changes
+            if hou.hipFile.hasUnsavedChanges():
+                save_choice = hou.ui.displayMessage(
+                    "Current scene has unsaved changes.\n\nSave before creating new file?",
+                    buttons=("Save & Create", "Create Without Saving", "Cancel"),
+                    severity=hou.severityType.ImportantMessage,
+                    default_choice=0,
+                    close_choice=2,
+                    title="Unsaved Changes"
+                )
+                
+                if save_choice == 0:
+                    try:
+                        hou.hipFile.save()
+                    except hou.OperationFailed as e:
+                        hou.ui.displayMessage(f"Failed to save:\n{str(e)}", severity=hou.severityType.Error)
+                        return
+                elif save_choice == 2:
+                    return
+            
+            # Create new file
+            hou.hipFile.clear()
+            hou.hipFile.save(filepath)
+            
+            # Refresh file list
+            self._refresh_files_for_current_tab()
+            
+            # Show success message
+            hou.ui.setStatusMessage(f"Created: {filename}", severity=hou.severityType.Message)
+            hou.ui.displayMessage(
+                f"New file created successfully!\n\n{filename}\n\nLocation:\n{target_dir}",
+                severity=hou.severityType.Message,
+                title="New File Created"
+            )
+            
+        except Exception as e:
+            hou.ui.displayMessage(
+                f"Failed to create new file:\n{str(e)}",
+                severity=hou.severityType.Error,
+                title="New File Error"
+            )
+            import traceback
+            traceback.print_exc()
+    
     def _save_version(self):
         try:
             current_file = hou.hipFile.name()
