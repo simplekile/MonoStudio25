@@ -5,11 +5,17 @@ import hou
 from .file_manager_helpers import ORG, APP, collect_files, get_current_houdini_file, is_current_file, infer_shot, parse_ver, open_in_explorer, get_render_folder_path, increment_version_and_backup, debug_print, DEBUG
 
 class MainWindowEventFilter(QtCore.QObject):
+    """Monitor Houdini main window for resize/move events"""
     def __init__(self, minibar):
-        super().__init__(minibar); self.minibar = minibar; self._last_main_window_geo=None
+        super().__init__(minibar)
+        self.minibar = minibar
+        
     def eventFilter(self, obj, ev):
-        if hasattr(self.minibar, '_is_dragging') and self.minibar._is_dragging: return super().eventFilter(obj, ev)
-        if hasattr(self.minibar, '_updating_position') and self.minibar._updating_position: return super().eventFilter(obj, ev)
+        # Skip if minibar is being dragged
+        if hasattr(self.minibar, '_is_dragging') and self.minibar._is_dragging:
+            return super().eventFilter(obj, ev)
+        
+        # Debounce window changes with 150ms timer
         if ev.type() in (QtCore.QEvent.Resize, QtCore.QEvent.Move):
             if not hasattr(self.minibar, '_main_window_change_timer'):
                 self.minibar._main_window_change_timer = QtCore.QTimer(self.minibar)
@@ -17,22 +23,16 @@ class MainWindowEventFilter(QtCore.QObject):
                 self.minibar._main_window_change_timer.timeout.connect(self._on_main_window_changed)
             if not self.minibar._main_window_change_timer.isActive():
                 self.minibar._main_window_change_timer.start(150)
+        
         return super().eventFilter(obj, ev)
+    
     def _on_main_window_changed(self):
+        """Update minibar position when Houdini window changes"""
         try:
-            mw = hou.qt.mainWindow()
-            if mw and self.minibar and self.minibar.isVisible():
-                current_geo = mw.geometry()
-                significant_change = True
-                if self._last_main_window_geo:
-                    old_geo = self._last_main_window_geo
-                    pos_diff = abs(current_geo.x() - old_geo.x()) + abs(current_geo.y() - old_geo.y())
-                    size_diff = abs(current_geo.width() - old_geo.width()) + abs(current_geo.height() - old_geo.height())
-                    significant_change = pos_diff > 5 or size_diff > 10
-                if significant_change:
-                    self._last_main_window_geo = current_geo
-                    self.minibar._update_position_relative_to_main_window()
-        except: pass
+            if self.minibar and self.minibar.isVisible():
+                self.minibar._update_position_relative_to_main_window()
+        except:
+            pass
 
 class MonoFileMiniBar(QtWidgets.QWidget):
     def __init__(self, manager_factory, parent=None):
@@ -43,7 +43,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.manager_factory=manager_factory; self.manager=None
         self._drag_pos=None; self._is_dragging=False
         self._locked=self.s.value("minibar_locked", False, type=bool)
-        self._last_current_file = None; self._position_stable_count = 0; self._last_stable_pos = None
+        self._last_current_file = None
         self._file_check_timer = QtCore.QTimer(self); self._file_check_timer.timeout.connect(self._check_file_changes); self._file_check_timer.start(2000)
         self._setup_main_window_monitoring()
         self.handle_area = QtWidgets.QLabel("⋮⋮"); self.handle_area.setFixedWidth(20); self.handle_area.setAlignment(QtCore.Qt.AlignCenter); self.handle_area.setToolTip("Drag to move • Right-click for options"); self.handle_area.setCursor(QtCore.Qt.OpenHandCursor)
@@ -180,11 +180,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             self._dragging = False
             self.handle_area.setCursor(QtCore.Qt.OpenHandCursor)
             
-            # Save new position
-            pos = self.pos()
-            self.s.setValue("minibar_x", pos.x())
-            self.s.setValue("minibar_y", pos.y())
-            self.s.sync()
+            # Save new position as offset
+            self._save_relative_position()
         event.accept()
     
     def _show_handle_context_menu(self, pos):
@@ -243,33 +240,20 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self._update_lock_visual_feedback()
     
     def _reset_position(self):
-        """Reset to default position"""
-        # Clear ALL saved position values (absolute, relative, and offset)
-        self.s.remove("minibar_x")
-        self.s.remove("minibar_y")
-        self.s.remove("minibar_offset_x")
-        self.s.remove("minibar_offset_y")
-        self.s.remove("minibar_rel_x")
-        self.s.remove("minibar_rel_y")
-        self.s.remove("minibar_abs_x")
-        self.s.remove("minibar_abs_y")
+        """Reset to default position (top-right of Houdini window)"""
+        # Set default offsets (top-right position)
+        self.s.setValue("minibar_offset_x", -85)  # ~20px from right edge
+        self.s.setValue("minibar_offset_y", 0)     # At top edge
         self.s.sync()
         
-        # Move to default position
-        default_x, default_y = self._get_default_position()
-        self.move(default_x, default_y)
-        
-        # Save new position
-        self._save_relative_position()
+        # Apply position
+        self._update_position_relative_to_main_window()
     
     def _close_minibar(self):
         """Close MiniBar"""
         try:
             # Save current position before closing
-            pos = self.pos()
-            self.s.setValue("minibar_x", pos.x())
-            self.s.setValue("minibar_y", pos.y())
-            self.s.sync()
+            self._save_relative_position()
             
             # Hide MiniBar
             self.hide()
@@ -489,58 +473,77 @@ class MonoFileMiniBar(QtWidgets.QWidget):
 
     # ---- Positioning relative to main window ----
     def _save_relative_position(self):
+        """Save MiniBar position as offset from Houdini window"""
         try:
-            if hasattr(self, '_updating_position') and self._updating_position: return
+            if hasattr(self, '_updating_position') and self._updating_position:
+                return
+            
             mw = hou.qt.mainWindow()
             if not mw or not mw.isVisible():
                 return
+            
             hou_geo = mw.geometry()
             my_pos = self.pos()
-            if hou_geo.width() <= 0 or hou_geo.height() <= 0: return
-            hou_right = hou_geo.x() + hou_geo.width(); hou_top = hou_geo.y()
-            minibar_right = my_pos.x() + self.width(); minibar_top = my_pos.y()
-            offset_x = minibar_right - hou_right; offset_y = minibar_top - hou_top
-            rel_x = (minibar_right - hou_geo.x()) / hou_geo.width(); rel_y = (minibar_top - hou_geo.y()) / hou_geo.height()
-            rel_x = max(-0.5, min(1.5, rel_x)); rel_y = max(-0.2, min(1.2, rel_y))
-            old_offset_x = self.s.value("minibar_offset_x", -85, type=int); old_offset_y = self.s.value("minibar_offset_y", 0, type=int)
-            if abs(offset_x - old_offset_x) > 5 or abs(offset_y - old_offset_y) > 5:
-                self.s.setValue("minibar_offset_x", offset_x); self.s.setValue("minibar_offset_y", offset_y)
-                self.s.setValue("minibar_rel_x", rel_x); self.s.setValue("minibar_rel_y", rel_y)
-                self.s.setValue("minibar_abs_x", my_pos.x()); self.s.setValue("minibar_abs_y", my_pos.y()); self.s.sync()
+            
+            # Calculate offset from Houdini right/top edges
+            hou_right = hou_geo.x() + hou_geo.width()
+            hou_top = hou_geo.y()
+            minibar_right = my_pos.x() + self.width()
+            minibar_top = my_pos.y()
+            
+            offset_x = minibar_right - hou_right
+            offset_y = minibar_top - hou_top
+            
+            # Save offsets (no threshold - always save)
+            self.s.setValue("minibar_offset_x", offset_x)
+            self.s.setValue("minibar_offset_y", offset_y)
+            self.s.sync()
+            
         except Exception as e:
-            if os.environ.get('MONO_DEBUG'): debug_print(f"⚠️ Failed to save minibar position: {e}")
+            if DEBUG:
+                debug_print(f"⚠️ Failed to save position: {e}")
 
     def _update_position_relative_to_main_window(self):
+        """Update MiniBar position when Houdini window resizes/moves"""
         try:
             self._updating_position = True
+            
             mw = hou.qt.mainWindow()
             if not mw or not mw.isVisible():
                 return
+            
             hou_geo = mw.geometry()
             if hou_geo.width() <= 0 or hou_geo.height() <= 0:
                 return
-            offset_x = self.s.value("minibar_offset_x", -85, type=int); offset_y = self.s.value("minibar_offset_y", 0, type=int)
-            hou_right = hou_geo.x() + hou_geo.width(); hou_top = hou_geo.y()
-            minibar_right = hou_right + offset_x; minibar_top = hou_top + offset_y
-            new_x = minibar_right - self.width(); new_y = minibar_top
+            
+            # Load saved offset (default: top-right position)
+            offset_x = self.s.value("minibar_offset_x", -85, type=int)
+            offset_y = self.s.value("minibar_offset_y", 0, type=int)
+            
+            # Calculate position from Houdini geometry + offset
+            hou_right = hou_geo.x() + hou_geo.width()
+            hou_top = hou_geo.y()
+            minibar_right = hou_right + offset_x
+            minibar_top = hou_top + offset_y
+            new_x = minibar_right - self.width()
+            new_y = minibar_top
+            
+            # Ensure position is visible on screen
             screen = QtWidgets.QApplication.primaryScreen()
             if screen:
-                screen_geo = screen.availableGeometry(); min_visible=50
-                new_x = max(screen_geo.x() - self.width() + min_visible, min(new_x, screen_geo.right() - min_visible))
-                new_y = max(screen_geo.y(), min(new_y, screen_geo.bottom() - min_visible))
-            current_pos = self.pos(); distance_moved = abs(new_x - current_pos.x()) + abs(new_y - current_pos.y())
-            if distance_moved > 3:
-                rel_x_check = (new_x + self.width() - hou_geo.x()) / hou_geo.width(); rel_y_check = (new_y - hou_geo.y()) / hou_geo.height()
-                if 0.85 <= rel_x_check <= 1.05 and -0.1 <= rel_y_check <= 0.1:
-                    if hasattr(self, '_last_stable_pos') and self._last_stable_pos:
-                        stable_distance = abs(new_x - self._last_stable_pos.x()) + abs(new_y - self._last_stable_pos.y())
-                        if stable_distance < 5: self._position_stable_count += 1
-                        else: self._position_stable_count = 0; self._last_stable_pos = QtCore.QPoint(new_x, new_y)
-                    else:
-                        self._last_stable_pos = QtCore.QPoint(new_x, new_y); self._position_stable_count = 0
-                    if self._position_stable_count < 3: self.move(new_x, new_y)
+                screen_geo = screen.availableGeometry()
+                min_visible = 50
+                new_x = max(screen_geo.x() - self.width() + min_visible, 
+                           min(new_x, screen_geo.right() - min_visible))
+                new_y = max(screen_geo.y(), 
+                           min(new_y, screen_geo.bottom() - min_visible))
+            
+            # Move to new position
+            self.move(new_x, new_y)
+            
         except Exception as e:
-            if os.environ.get('MONO_DEBUG'): debug_print(f"⚠️ Error updating minibar position: {e}")
+            if DEBUG:
+                debug_print(f"⚠️ Error updating position: {e}")
         finally:
             self._updating_position = False
 
@@ -573,22 +576,14 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             return (20, 80)
 
     def _restore_relative_position(self):
+        """Restore MiniBar position using offset-based calculation"""
         try:
-            # Get saved position or use default
-            saved_x = self.s.value("minibar_x", -1, type=int)
-            saved_y = self.s.value("minibar_y", -1, type=int)
-            
-            if saved_x != -1 and saved_y != -1:
-                # Use saved position
-                self.move(saved_x, saved_y)
-            else:
-                # Use default position
-                default_x, default_y = self._get_default_position()
-                self.move(default_x, default_y)
-                    
+            # Always use offset-based positioning for consistency
+            self._update_position_relative_to_main_window()
         except Exception as e:
-            # Fallback position
-            self.move(20, 80)
+            # Fallback to default position
+            default_x, default_y = self._get_default_position()
+            self.move(default_x, default_y)
 
 
     def _update_lock_visual_feedback(self):
