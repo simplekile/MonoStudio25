@@ -7,6 +7,8 @@ from .base_dialog import MonoBaseDialog
 from .smart_input import SmartLineEdit
 from .config_manager import ConfigManager
 from .choice_dialog import ChoiceDialog, InputDialog
+from .new_file_dialog import NewFileDialog
+from .new_folder_dialog import NewFolderDialog
 
 __all__ = [
     'MonoBaseDialog',
@@ -14,5 +16,7 @@ __all__ = [
     'ConfigManager',
     'ChoiceDialog',
     'InputDialog',
+    'NewFileDialog',
+    'NewFolderDialog',
 ]
 
