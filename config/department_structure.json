@@ -111,6 +111,52 @@
       "create_publish": false
     }
   ],
+  "shot_departments": [
+    {
+      "id": "01_animation",
+      "name": "Animation",
+      "icon": "🎬",
+      "subdepartments": [],
+      "create_publish": false
+    },
+    {
+      "id": "02_sim",
+      "name": "Simulation",
+      "icon": "💨",
+      "subdepartments": [
+        {
+          "id": "01_crowd",
+          "name": "Crowd",
+          "create_publish": true
+        },
+        {
+          "id": "02_cloth",
+          "name": "Cloth",
+          "create_publish": true
+        },
+        {
+          "id": "03_destruction",
+          "name": "Destruction",
+          "create_publish": true
+        }
+      ],
+      "create_publish": true
+    },
+    {
+      "id": "03_lighting",
+      "name": "Lighting",
+      "icon": "💡",
+      "subdepartments": [],
+      "create_publish": false
+    },
+    {
+      "id": "04_comp",
+      "name": "Compositing",
+      "icon": "🎞️",
+      "subdepartments": [],
+      "create_publish": false
+    }
+  ],
   "version": "2.0",
   "last_modified": "2024-12-19"
 }

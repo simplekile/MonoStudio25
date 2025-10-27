@@ -77,16 +77,26 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.dept_btn.setToolTip("Select department")
         self.dept_btn.clicked.connect(self._show_dept_menu)
         self.current_dept = None
+        self.current_subdept = None  # Track subdepartment selection
         
-        self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(160); self.shot_display.setMaximumWidth(160); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
+        # User filter button (filter files by user)
+        self.user_btn = QtWidgets.QToolButton()
+        self.user_btn.setText("👤 All")
+        self.user_btn.setFixedSize(60, 24)
+        self.user_btn.setToolTip("Filter by user • All Users or specific user")
+        self.user_btn.clicked.connect(self._show_user_filter_menu)
+        self.current_user_filter = None  # None = All Users
+        
+        self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(140); self.shot_display.setMaximumWidth(140); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
         self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• New Folder\n• Save Version\n• Reload/Restart\n• Open Folders"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
-        self.btn_settings=QtWidgets.QToolButton(); self.btn_settings.setText("⚙️"); self.btn_settings.setFixedSize(32, 24); self.btn_settings.setToolTip("Settings Dialog • Configure project and scan files"); self.btn_settings.clicked.connect(self._open_settings)
+        self.btn_settings=QtWidgets.QToolButton(); self.btn_settings.setText("⚙️"); self.btn_settings.setFixedSize(32, 24); self.btn_settings.setToolTip("Settings Menu • User • Settings • About"); self.btn_settings.clicked.connect(self._show_settings_menu)
         lay=QtWidgets.QHBoxLayout(self); lay.setContentsMargins(4,3,6,3); lay.setSpacing(3)
         lay.addWidget(self.handle_area, 0)
         lay.addWidget(self.type_btn, 0)
         lay.addWidget(self.dept_btn, 0)
+        lay.addWidget(self.user_btn, 0)
         lay.addWidget(self.shot_display, 1)
         lay.addWidget(self.btn_quick_menu, 0)
         lay.addWidget(self.btn_settings, 0)
@@ -322,12 +332,13 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             self._select_type(type_name, type_path, is_assets)
     
     def _show_dept_menu(self):
-        """Show department selection menu"""
+        """Show hierarchical department menu with subdepartments"""
         menu = QtWidgets.QMenu(self)
         menu.setStyleSheet("""
             QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
             QMenu::item { padding:8px 16px; }
             QMenu::item:selected { background:#3d5a99; }
+            QMenu::separator { height: 1px; background: #3a3a3a; }
         """)
         
         if not self.current_type:
@@ -338,34 +349,98 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             if root and project:
                 project_path = os.path.join(root, project)
-                from .file_manager_helpers import scan_departments_for_type, collect_files_with_filters
+                from .file_manager_helpers import (
+                    scan_departments_for_type, 
+                    collect_files_with_filters,
+                    get_subdepartments_for_department,
+                    load_department_config
+                )
                 
                 departments = scan_departments_for_type(project_path, self.current_type, self.current_type_is_assets)
+                
+                # Load config for department icons
+                config = load_department_config()
+                dept_map = {}
+                if config and 'standard_departments' in config:
+                    dept_map = {d['id']: d for d in config['standard_departments']}
                 
                 if not departments:
                     menu.addAction("No departments found").setEnabled(False)
                 else:
                     for dept in departments:
-                        # Count files in this department
-                        files = collect_files_with_filters(project_path, self.current_type, dept)
-                        file_count = len(files)
+                        # Get department info from config
+                        dept_config = dept_map.get(dept, {})
+                        dept_icon = dept_config.get('icon', '📁')
                         
-                        action = menu.addAction(f"{dept} ({file_count})")
-                        action.setData(dept)
+                        # Check if department has subdepartments in config
+                        subdepts = get_subdepartments_for_department(dept)
                         
-                        # Bold current department
-                        if dept == self.current_dept:
-                            font = action.font()
-                            font.setBold(True)
-                            action.setFont(font)
+                        if subdepts:
+                            # Create submenu for departments with subdepartments
+                            dept_submenu = menu.addMenu(f"{dept_icon} {dept}")
+                            dept_submenu.setStyleSheet(menu.styleSheet())
+                            
+                            # Count total files in department (all subdepts)
+                            all_files = collect_files_with_filters(project_path, self.current_type, dept)
+                            total_count = len(all_files)
+                            
+                            # Add main department as first option (shows all files)
+                            main_action = dept_submenu.addAction(f"📁 All files ({total_count})")
+                            main_action.setData((dept, None))  # (dept, subdept)
+                            
+                            # Bold if currently selected (dept without subdept)
+                            if dept == self.current_dept and not self.current_subdept:
+                                font = main_action.font()
+                                font.setBold(True)
+                                main_action.setFont(font)
+                            
+                            dept_submenu.addSeparator()
+                            
+                            # Add subdepartments
+                            for subdept in subdepts:
+                                subdept_id = subdept['id']
+                                subdept_name = subdept.get('name', subdept_id)
+                                
+                                # Count files in this specific subdepartment
+                                subdept_files = collect_files_with_filters(
+                                    project_path, self.current_type, dept, subdept=subdept_id
+                                )
+                                subdept_count = len(subdept_files)
+                                
+                                subdept_action = dept_submenu.addAction(f"  └─ {subdept_name} ({subdept_count})")
+                                subdept_action.setData((dept, subdept_id))
+                                
+                                # Bold if currently selected
+                                if dept == self.current_dept and subdept_id == self.current_subdept:
+                                    font = subdept_action.font()
+                                    font.setBold(True)
+                                    subdept_action.setFont(font)
+                        else:
+                            # No subdepartments - add as regular action
+                            files = collect_files_with_filters(project_path, self.current_type, dept)
+                            file_count = len(files)
+                            
+                            action = menu.addAction(f"{dept_icon} {dept} ({file_count})")
+                            action.setData((dept, None))
+                            
+                            # Bold if currently selected
+                            if dept == self.current_dept and not self.current_subdept:
+                                font = action.font()
+                                font.setBold(True)
+                                action.setFont(font)
         
         # Show menu
         menu_pos = self.mapToGlobal(self.dept_btn.geometry().bottomLeft())
         selected = menu.exec_(menu_pos)
         
         if selected and selected.data():
-            dept_name = selected.data()
-            self._select_department(dept_name)
+            data = selected.data()
+            if isinstance(data, tuple):
+                dept_name, subdept_name = data
+                self._select_department(dept_name, subdept_name)
+            else:
+                # Legacy support for non-tuple data
+                self._select_department(data, None)
     
     def _select_type(self, type_name, type_path, is_assets):
         """Handle type selection"""
@@ -390,19 +465,157 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.combo.clear()
         self.shot_display.setText("Select department")
     
-    def _select_department(self, dept_name):
-        """Handle department selection"""
+    def _select_department(self, dept_name, subdept_name=None):
+        """
+        Handle department/subdepartment selection
+        Args:
+            dept_name: Main department (e.g., "01_modeling")
+            subdept_name: Subdepartment (e.g., "01_sculpt") or None
+        """
         self.current_dept = dept_name
+        self.current_subdept = subdept_name
         
-        # Update button text (shorten if needed)
-        short_dept = dept_name.split('_')[-1][:8] if '_' in dept_name else dept_name[:8]
-        self.dept_btn.setText(f"📁 {short_dept}")
-        self.dept_btn.setToolTip(f"Department: {dept_name}")
+        # Update button text
+        if subdept_name:
+            # Show dept/subdept (truncated to fit button)
+            subdept_short = subdept_name.split('_')[-1][:6]
+            display_text = f"{dept_name.split('_')[-1][:3]}/{subdept_short}"[:10]
+            self.dept_btn.setText(f"📁 {display_text}")
+            self.dept_btn.setToolTip(f"{dept_name} / {subdept_name}")
+        else:
+            # Show just department
+            short_dept = dept_name.split('_')[-1][:8] if '_' in dept_name else dept_name[:8]
+            self.dept_btn.setText(f"📁 {short_dept}")
+            self.dept_btn.setToolTip(f"Department: {dept_name}")
         
         # Save selection
         if self.current_type:
             saved_dept_key = f"minibar_dept_{self.current_type}"
+            saved_subdept_key = f"minibar_subdept_{self.current_type}"
             self.s.setValue(saved_dept_key, dept_name)
+            self.s.setValue(saved_subdept_key, subdept_name or "")
+            self.s.sync()
+        
+        # Refresh files
+        self._refresh_files_for_current_tab()
+    
+    def _show_user_filter_menu(self):
+        """Show user filter menu"""
+        menu = QtWidgets.QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
+            QMenu::item { padding:8px 16px; }
+            QMenu::item:selected { background:#3d5a99; }
+            QMenu::separator { height: 1px; background: #3a3a3a; }
+        """)
+        
+        if not self.current_dept:
+            menu.addAction("Select department first").setEnabled(False)
+        else:
+            root = self.s.value("project_root", "", type=str)
+            project = self.s.value("current_project", "", type=str)
+            
+            if root and project:
+                project_path = os.path.join(root, project)
+                from .file_manager_helpers import (
+                    collect_files_with_filters,
+                    get_current_username
+                )
+                
+                # Get current user from settings
+                current_user = get_current_username()
+                
+                # Collect all files to find users
+                all_files = collect_files_with_filters(
+                    project_path, 
+                    self.current_type, 
+                    self.current_dept,
+                    subdept=self.current_subdept
+                )
+                
+                # Extract unique users from file paths
+                users_with_counts = {}
+                
+                for filepath, asset_name, dept_name, file_info in all_files:
+                    # Try to extract username from path
+                    path_parts = filepath.split(os.sep)
+                    
+                    # Look for user workspace folders (lowercase pattern)
+                    from .file_manager_helpers import is_user_workspace
+                    for part in reversed(path_parts):
+                        if is_user_workspace(part):
+                            if part not in users_with_counts:
+                                users_with_counts[part] = 0
+                            users_with_counts[part] += 1
+                            break
+                
+                # Add "All Users" option
+                all_count = len(all_files)
+                all_action = menu.addAction(f"👥 All Users ({all_count})")
+                all_action.setData(None)  # None = no filter
+                
+                # Bold if currently selected
+                if self.current_user_filter is None:
+                    font = all_action.font()
+                    font.setBold(True)
+                    all_action.setFont(font)
+                
+                if users_with_counts:
+                    menu.addSeparator()
+                    
+                    # Sort users: current user first, then alphabetically
+                    sorted_users = sorted(users_with_counts.items(), 
+                                        key=lambda x: (x[0] != current_user, x[0]))
+                    
+                    for username, count in sorted_users:
+                        # Highlight current user
+                        if username == current_user:
+                            action = menu.addAction(f"👤 {username} ({count}) ⭐")
+                            action.setToolTip(f"Your workspace • {count} files")
+                        else:
+                            action = menu.addAction(f"👤 {username} ({count})")
+                            action.setToolTip(f"{username}'s workspace • {count} files")
+                        
+                        action.setData(username)
+                        
+                        # Bold if currently selected
+                        if username == self.current_user_filter:
+                            font = action.font()
+                            font.setBold(True)
+                            action.setFont(font)
+        
+        # Show menu
+        menu_pos = self.mapToGlobal(self.user_btn.geometry().bottomLeft())
+        selected = menu.exec_(menu_pos)
+        
+        if selected and selected.data() is not None:
+            # User selected
+            self._select_user_filter(selected.data())
+        elif selected and selected.data() is None:
+            # "All Users" selected
+            self._select_user_filter(None)
+    
+    def _select_user_filter(self, username):
+        """
+        Handle user filter selection
+        Args:
+            username: Username to filter by, or None for all users
+        """
+        self.current_user_filter = username
+        
+        # Update button text
+        if username:
+            short_name = username[:6]
+            self.user_btn.setText(f"👤 {short_name}")
+            self.user_btn.setToolTip(f"Filter: {username}'s files only")
+        else:
+            self.user_btn.setText("👤 All")
+            self.user_btn.setToolTip("Filter by user • All Users")
+        
+        # Save selection
+        if self.current_type:
+            saved_user_key = f"minibar_user_{self.current_type}"
+            self.s.setValue(saved_user_key, username or "")
             self.s.sync()
         
         # Refresh files
@@ -754,28 +967,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             hou.ui.displayMessage(f"Failed to restart Houdini:\n{str(e)}", severity=hou.severityType.Error)
 
     def _new_file(self):
-        """Create new file with auto-naming based on type/department"""
+        """Create new file with auto-naming based on type/department/subdept/user"""
         try:
-            # Get current selections
-            type_name = self.current_type
-            department = self.current_dept
-            
-            if not type_name:
-                hou.ui.displayMessage(
-                    "Please select a type first.\n\nClick 🏷️ Type button to select.",
-                    severity=hou.severityType.Warning,
-                    title="New File"
-                )
-                return
-            
-            if not department:
-                hou.ui.displayMessage(
-                    "Please select a department first.\n\nClick 📁 Dept button to select.",
-                    severity=hou.severityType.Warning,
-                    title="New File"
-                )
-                return
-            
             # Get project settings
             root = self.s.value("project_root", "", type=str)
             project = self.s.value("current_project", "", type=str)
@@ -788,41 +981,91 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 )
                 return
             
-            # Ask for asset/shot name
-            is_assets = self.current_type_is_assets
-            
-            if is_assets:
-                prompt = f"Create new asset file:\n\nType: {type_name}\nDepartment: {department}\n\nEnter asset name (e.g., Cyborg, Chair, Tree):"
-            else:
-                prompt = f"Create new shot file:\n\nType: {type_name}\nDepartment: {department}\n\nEnter shot name (e.g., Sh010, Sh020):"
-            
-            result = hou.ui.readInput(
-                prompt,
-                buttons=("Create", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=1,
-                title="New File"
+            # Get current selections and username
+            from .file_manager_helpers import (
+                get_current_username,
+                load_asset_types_config,
+                load_department_config
             )
             
-            if result[0] != 0:  # Cancelled
-                return
+            type_name = self.current_type
+            department = self.current_dept
+            subdepartment = self.current_subdept
+            username = get_current_username()
+            is_assets = self.current_type_is_assets
             
-            asset_name = result[1].strip()
-            if not asset_name:
-                hou.ui.displayMessage(
-                    "Asset name cannot be empty.",
-                    severity=hou.severityType.Warning,
-                    title="New File"
-                )
-                return
+            # Load config data for dialog
+            from .file_manager_helpers import scan_project_types
+            
+            project_path = os.path.join(root, project)
+            
+            # Scan actual types in project structure (not from config)
+            scanned_types = scan_project_types(project_path)
+            
+            # Convert scanned types to asset_types format for dialog
+            asset_types = []
+            all_types_data = []  # Store all types (assets + shots) with metadata
+            
+            for scanned_type_name, scanned_type_path, scanned_is_assets in scanned_types:
+                if scanned_is_assets:
+                    # Try to get icon from config
+                    config_types = load_asset_types_config()
+                    icon = '📁'
+                    for ct in config_types:
+                        if ct['id'] == scanned_type_name:
+                            icon = ct.get('icon', '📁')
+                            break
+                    
+                    asset_types.append({
+                        'id': scanned_type_name,
+                        'name': scanned_type_name,
+                        'icon': icon
+                    })
+                
+                all_types_data.append((scanned_type_name, scanned_is_assets))
+            
+            # Load departments config
+            config = load_department_config()
+            departments = []
+            if config:
+                if is_assets and 'standard_departments' in config:
+                    departments = config['standard_departments']
+                elif not is_assets and 'shot_departments' in config:
+                    departments = config['shot_departments']
+            
+            # Show custom New File dialog
+            from .ui import NewFileDialog
+            
+            dialog = NewFileDialog(
+                parent=self,
+                type_name=type_name,
+                department=department,
+                subdepartment=subdepartment,
+                username=username,
+                is_assets=is_assets,
+                asset_types=asset_types,  # Asset types for icon lookup
+                departments=departments,
+                all_types=all_types_data  # All scanned types (assets + shots)
+            )
+            
+            if not dialog.exec_():
+                return  # Cancelled
+            
+            # Get values from dialog
+            values = dialog.get_values()
+            type_name = values['type']
+            is_assets = values['is_assets']  # May have changed in dialog
+            department = values['department']
+            subdepartment = values['subdepartment']
+            username = values['username']
+            asset_name = values['name']
             
             # Generate filename
             filename = generate_new_filename(type_name, asset_name, department, "v001", ".hip")
             
-            # Determine target directory
+            # Determine target directory (with subdept + user workspace)
             if is_assets:
-                # Assets: 01_assets/_characters/char_AssetName/01_modeling/
+                # Assets: 01_assets/_characters/char_AssetName/01_modeling/[01_sculpt/]username/
                 # Add prefix if not present
                 if not any(asset_name.lower().startswith(p) for p in ['char_', 'prop_', 'env_', 'veh_']):
                     # Guess prefix from type
@@ -833,12 +1076,23 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                     elif 'environment' in type_name.lower():
                         asset_name = f"env_{asset_name}"
                 
-                target_dir = os.path.join(root, project, "01_assets", type_name, asset_name, department)
+                # Build path: assets/type/asset/dept/[subdept/]user/
+                path_parts = [root, project, "01_assets", type_name, asset_name, department]
+                
+                if subdepartment:
+                    path_parts.append(subdepartment)
+                
+                path_parts.append(username)  # User workspace
+                target_dir = os.path.join(*path_parts)
             else:
-                # Shots: 02_shots/03_lighting/
-                # Extract subpath from department
-                subpath = os.path.join("02_shots", department)
-                target_dir = os.path.join(root, project, subpath)
+                # Shots: 02_shots/department/[subdept/]username/
+                path_parts = [root, project, "02_shots", department]
+                
+                if subdepartment:
+                    path_parts.append(subdepartment)
+                
+                path_parts.append(username)  # User workspace
+                target_dir = os.path.join(*path_parts)
             
             # Create directory if not exists
             if not os.path.exists(target_dir):
@@ -889,13 +1143,25 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             hou.hipFile.clear()
             hou.hipFile.save(filepath)
             
+            # Register user activity
+            from .file_manager_helpers import register_user_activity
+            project_path = os.path.join(root, project)
+            register_user_activity(project_path, username)
+            debug_print(f"📝 Registered user activity: {username}")
+            
             # Refresh file list
             self._refresh_files_for_current_tab()
             
             # Show success message
+            location_info = f"Location:\n{target_dir}"
+            if subdepartment:
+                location_info = f"Department: {department}\nSubdepartment: {subdepartment}\nUser: {username}\n\n{location_info}"
+            else:
+                location_info = f"Department: {department}\nUser: {username}\n\n{location_info}"
+            
             hou.ui.setStatusMessage(f"Created: {filename}", severity=hou.severityType.Message)
             hou.ui.displayMessage(
-                f"New file created successfully!\n\n{filename}\n\nLocation:\n{target_dir}",
+                f"New file created successfully!\n\n{filename}\n\n{location_info}",
                 severity=hou.severityType.Message,
                 title="New File Created"
             )
@@ -924,24 +1190,39 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 )
                 return
             
-            # Ask user: Asset or Shot? (using custom styled dialog)
-            from .ui import ChoiceDialog
+            # Load data for dialog
+            from .file_manager_helpers import scan_project_types, load_asset_types_config
             
-            choice_dialog = ChoiceDialog(
+            project_path = os.path.join(root, project)
+            
+            # Scan types in project
+            scanned_types = scan_project_types(project_path)
+            all_types_data = [(name, is_assets) for name, path, is_assets in scanned_types]
+            
+            # Load asset types config for icons
+            asset_types = load_asset_types_config()
+            
+            # Show custom New Folder dialog
+            from .ui import NewFolderDialog
+            
+            dialog = NewFolderDialog(
                 parent=self,
-                title="New Folder",
-                message="What would you like to create?",
-                choices=["Asset Folder", "Shot Folder"],
-                icons=["🎨", "🎬"]
+                all_types=all_types_data,
+                asset_types=asset_types
             )
             
-            if choice_dialog.exec_():
-                selected = choice_dialog.get_selected_index()
-                
-                if selected == 0:  # Asset
-                    self._new_asset_folder(root, project)
-                elif selected == 1:  # Shot
-                    self._new_shot_folder(root, project)
+            if not dialog.exec_():
+                return  # Cancelled
+            
+            # Get values from dialog
+            values = dialog.get_values()
+            
+            if values['is_asset']:
+                # Create asset folder
+                self._create_asset_folder_from_dialog(root, project, values)
+            else:
+                # Create shot folder
+                self._create_shot_folder_from_dialog(root, project, values)
                 
         except Exception as e:
             hou.ui.displayMessage(
@@ -952,148 +1233,17 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             import traceback
             traceback.print_exc()
     
-    def _new_asset_folder(self, root, project):
-        """Create new asset folder structure"""
+    def _create_asset_folder_from_dialog(self, root, project, values):
+        """Create asset folder from dialog values"""
         try:
-            # Load asset types from config (not scan - so user can create even if folder doesn't exist)
-            asset_types = load_asset_types_config()
+            selected_type = values['asset_type']
+            asset_name = values['asset_name']
             
-            if not asset_types:
-                hou.ui.displayMessage(
-                    "No asset types configured.\n\nPlease configure in Settings.",
-                    severity=hou.severityType.Warning,
-                    title="New Folder"
-                )
-                return
-            
-            # Build type selection for dropdown
             project_path = os.path.join(root, project)
-            type_choices = []
-            type_ids = []
-            
-            for atype in asset_types:
-                type_id = atype['id']
-                type_name = atype.get('name', type_id)
-                icon = atype.get('icon', '📁')
-                
-                # Count existing assets (if type folder exists)
-                type_path = os.path.join(project_path, "01_assets", type_id)
-                if os.path.exists(type_path):
-                    count = len([d for d in os.listdir(type_path) if os.path.isdir(os.path.join(type_path, d))])
-                    type_choices.append(f"{icon} {type_name} ({count} existing)")
-                else:
-                    type_choices.append(f"{icon} {type_name} (new type folder)")
-                
-                type_ids.append(type_id)
-            
-            # Show native Houdini selection dialog
-            selected = hou.ui.selectFromList(
-                type_choices,
-                message="Select asset type for new folder:",
-                title="New Folder - Select Type",
-                column_header="Type",
-                num_visible_rows=len(type_choices)
-            )
-            
-            if not selected:  # Cancelled
-                return
-            
-            selected_type = type_ids[selected[0]]
-            
-            # Ask for asset name (using custom styled dialog)
-            from .ui import InputDialog
-            
-            input_dialog = InputDialog(
-                parent=self,
-                title="New Asset",
-                message=f"Type: {selected_type}\n\nEnter asset name:",
-                initial_value="",
-                placeholder="e.g., Phoenix, Table, Tree"
-            )
-            
-            if not input_dialog.exec_():
-                return
-            
-            asset_name = input_dialog.get_value()
-            if not asset_name:
-                hou.ui.displayMessage("Asset name cannot be empty.", severity=hou.severityType.Warning)
-                return
             
             # Get standard departments
+            from .file_manager_helpers import get_standard_departments
             departments = get_standard_departments()
-            
-            # Load department config for preview
-            from .file_manager_helpers import load_department_config
-            config = load_department_config()
-            dept_map = {}
-            if config and 'standard_departments' in config:
-                dept_map = {d['id']: d for d in config['standard_departments']}
-            
-            # Build preview with software subfolders
-            # Get prefix for asset name
-            prefix = ''
-            for atype in asset_types:
-                if atype['id'] == selected_type:
-                    prefix = atype.get('prefix', '')
-                    break
-            
-            preview = f"Creating folder structure:\n\n"
-            preview += f"01_assets/{selected_type}/{prefix}{asset_name}/\n"
-            
-            # Show each department with software subfolders if configured
-            for i, dept_id in enumerate(departments):
-                dept_config = dept_map.get(dept_id, {})
-                software_folders = dept_config.get('software_folders', [])
-                
-                is_last = (i == len(departments) - 1)
-                branch = "└─" if is_last else "├─"
-                
-                if software_folders:
-                    preview += f"  {branch} {dept_id}/\n"
-                    for j, software in enumerate(software_folders):
-                        is_last_sw = (j == len(software_folders) - 1)
-                        sw_branch = "└─" if is_last_sw else "├─"
-                        indent = "     " if is_last else "  │  "
-                        preview += f"{indent}{sw_branch} {software}/\n"
-                else:
-                    preview += f"  {branch} {dept_id}/\n"
-            
-            # Count total folders that will be created
-            total_folders = 0
-            for dept_id in departments:
-                dept_config = dept_map.get(dept_id, {})
-                software_folders = dept_config.get('software_folders', [])
-                subdepartments = dept_config.get('subdepartments', [])
-                create_publish = dept_config.get('create_publish', False)
-                
-                # Main department folder
-                total_folders += 1
-                
-                # Software folders
-                total_folders += len(software_folders)
-                
-                # Subdepartments
-                for subdept in subdepartments:
-                    total_folders += 1  # Subdepartment folder
-                    if subdept.get('create_publish', False):
-                        total_folders += 1  # Subdepartment publish
-                
-                # Department publish
-                if create_publish:
-                    total_folders += 1
-            preview += f"\nTotal: {len(departments)} departments, {total_folders} folders\n\nProceed?"
-            
-            confirm = hou.ui.displayMessage(
-                preview,
-                buttons=("Create", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=1,
-                title="Confirm Folder Structure"
-            )
-            
-            if confirm != 0:  # Cancelled
-                return
             
             # Create folder structure
             success, asset_folder, message = create_asset_folder_structure(
@@ -1150,97 +1300,23 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             import traceback
             traceback.print_exc()
     
-    def _new_shot_folder(self, root, project):
-        """Create new shot folder structure"""
+    def _create_shot_folder_from_dialog(self, root, project, values):
+        """Create shot folder from dialog values"""
         try:
-            from .ui import ConfigManager
+            shot_name = values['shot_name']
             
             project_path = os.path.join(root, project)
             
-            # Ask for shot name (using custom styled dialog)
-            from .ui import InputDialog
-            
-            input_dialog = InputDialog(
-                parent=self,
-                title="New Shot",
-                message="Enter shot name:\n\nFormat: sq010_sh0010 (Sequence + Shot number)",
-                initial_value="sq010_sh0010",
-                placeholder="sq010_sh0010"
-            )
-            
-            if not input_dialog.exec_():
-                return
-            
-            shot_name = input_dialog.get_value()
-            if not shot_name:
-                hou.ui.displayMessage("Shot name cannot be empty.", severity=hou.severityType.Warning)
-                return
-            
-            # Validate shot name format (optional but recommended)
-            if '_' not in shot_name:
-                hou.ui.displayMessage(
-                    "Shot name should follow format: sq###_sh####\n\nExample: sq010_sh0010",
-                    severity=hou.severityType.Warning
-                )
-                return
-            
-            # Load shot departments using ConfigManager
+            # Load shot departments
+            from .ui import ConfigManager
             shot_departments = ConfigManager.load_shot_departments()
             
             if not shot_departments:
                 hou.ui.displayMessage(
-                    "No shot departments configured.\n\nUsing default: Layout/Anim/FX/Light/Comp",
+                    "No shot departments configured.\n\nPlease configure in Settings.",
                     severity=hou.severityType.Warning,
-                    title="New Shot"
+                    title="New Folder"
                 )
-            
-            # Build preview
-            preview = f"Creating shot structure:\n\n"
-            preview += f"02_shots/{shot_name}/\n"
-            
-            for i, dept in enumerate(shot_departments):
-                dept_id = dept['id']
-                dept_name = dept.get('name', dept_id)
-                icon = dept.get('icon', '📁')
-                software_folders = dept.get('software_folders', [])
-                create_publish = dept.get('create_publish', False)
-                
-                is_last = (i == len(shot_departments) - 1)
-                branch = "└─" if is_last else "├─"
-                
-                preview += f"  {branch} {icon} {dept_id}/ ({dept_name})\n"
-                
-                # Software subfolders
-                if software_folders:
-                    for j, sw in enumerate(software_folders):
-                        is_last_sw = (j == len(software_folders) - 1) and not create_publish
-                        sw_branch = "└─" if is_last_sw else "├─"
-                        indent = "     " if is_last else "  │  "
-                        preview += f"{indent}{sw_branch} {sw}/\n"
-                
-                # Publish folder
-                if create_publish:
-                    indent = "     " if is_last else "  │  "
-                    preview += f"{indent}└─ _publish/\n"
-            
-            total_folders = len(shot_departments)
-            for dept in shot_departments:
-                total_folders += len(dept.get('software_folders', []))
-                if dept.get('create_publish', False):
-                    total_folders += 1
-            
-            preview += f"\nTotal: {len(shot_departments)} departments, {total_folders} folders\n\nProceed?"
-            
-            confirm = hou.ui.displayMessage(
-                preview,
-                buttons=("Create", "Cancel"),
-                severity=hou.severityType.Message,
-                default_choice=0,
-                close_choice=1,
-                title="Confirm Shot Structure"
-            )
-            
-            if confirm != 0:  # Cancelled
                 return
             
             # Create shot folder structure
@@ -1259,18 +1335,29 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             # Create shot folder
             os.makedirs(shot_folder, exist_ok=True)
             
-            # Create all department folders
+            # Create all department folders with subdepartments
             for dept in shot_departments:
                 dept_id = dept['id']
                 dept_folder = os.path.join(shot_folder, dept_id)
                 os.makedirs(dept_folder, exist_ok=True)
+                
+                # Create subdepartments
+                for subdept in dept.get('subdepartments', []):
+                    subdept_id = subdept['id']
+                    subdept_folder = os.path.join(dept_folder, subdept_id)
+                    os.makedirs(subdept_folder, exist_ok=True)
+                    
+                    # Subdepartment publish folder
+                    if subdept.get('create_publish', False):
+                        subdept_publish = os.path.join(subdept_folder, '_publish')
+                        os.makedirs(subdept_publish, exist_ok=True)
                 
                 # Software subfolders
                 for sw in dept.get('software_folders', []):
                     sw_folder = os.path.join(dept_folder, sw)
                     os.makedirs(sw_folder, exist_ok=True)
                 
-                # Publish folder
+                # Department publish folder
                 if dept.get('create_publish', False):
                     publish_folder = os.path.join(dept_folder, '_publish')
                     os.makedirs(publish_folder, exist_ok=True)
@@ -1382,17 +1469,76 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         if len(sorted_paths) > 10:
             debug_print(f"  ... and {len(sorted_paths) - 10} more files")
             
+        # Get current user for highlighting
+        from .file_manager_helpers import get_current_username, is_user_workspace
+        current_user = get_current_username()
+        
+        # Group files by user for smart display
+        files_by_user = {}
+        files_without_user = []
+        
+        for p in paths:
+            # Extract username from path
+            path_parts = p.split(os.sep)
+            found_user = None
+            
+            for part in reversed(path_parts):
+                if is_user_workspace(part):
+                    found_user = part
+                    break
+            
+            if found_user:
+                if found_user not in files_by_user:
+                    files_by_user[found_user] = []
+                files_by_user[found_user].append(p)
+            else:
+                files_without_user.append(p)
+        
+        # Sort users: current user first, then alphabetically
+        sorted_users = sorted(files_by_user.keys(), key=lambda x: (x != current_user, x))
+        
         added_count = 0
-        for p in sorted(paths):
-            # Use asset name if available, otherwise use filename
-            if p in shot_names:
-                display_name = shot_names[p]  # This is actually asset_name now
+        
+        # Add files grouped by user
+        for username in sorted_users:
+            user_files = sorted(files_by_user[username])
+            
+            for p in user_files:
+                # Build label with username
                 name = os.path.basename(p)
                 ver = parse_ver(name)
+                
+                # Use asset name if available
+                if p in shot_names:
+                    display_name = shot_names[p]
+                else:
+                    display_name = name
+                
+                # Highlight current user with star
+                if username == current_user:
+                    label = f"⭐ {username} - {display_name} ({ver or '—'})"
+                else:
+                    label = f"👤 {username} - {display_name} ({ver or '—'})"
+                
+                idx = self.combo.count()
+                self.combo.addItem(label)
+                self.combo.setItemData(idx, p, QtCore.Qt.UserRole)
+                self.combo.setItemData(idx, label, QtCore.Qt.DisplayRole)
+                self.combo.setItemData(idx, name, QtCore.Qt.ToolTipRole)
+                self.combo.setItemData(idx, username, QtCore.Qt.UserRole+3)  # Store username
+                if p in shot_names: 
+                    self.combo.setItemData(idx, shot_names[p], QtCore.Qt.UserRole+2)
+                added_count += 1
+        
+        # Add files without user workspace (direct in dept/subdept)
+        for p in sorted(files_without_user):
+            name = os.path.basename(p)
+            ver = parse_ver(name)
+            
+            if p in shot_names:
+                display_name = shot_names[p]
                 label = f"{display_name} - {name} ({ver or '—'})"
             else:
-                name = os.path.basename(p)
-                ver = parse_ver(name)
                 label = f"{name} ({ver or '—'})"
             
             idx = self.combo.count()
@@ -1640,11 +1786,14 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 self.shot_display.setToolTip("Click 📁 button to select department")
                 return
             
-            debug_print(f"🔄 Standalone refresh: type='{type_name}', dept='{department}'")
+            subdepartment = self.current_subdept
+            user_filter = self.current_user_filter
+            
+            debug_print(f"🔄 Standalone refresh: type='{type_name}', dept='{department}', subdept='{subdepartment}', user='{user_filter}'")
             
             # Collect files using new scan functions (always .hip files only)
             from .file_manager_helpers import collect_files_with_filters
-            files_data = collect_files_with_filters(project_path, type_name, department)
+            files_data = collect_files_with_filters(project_path, type_name, department, subdept=subdepartment, username=user_filter)
             
             if not files_data:
                 debug_print("⚠️ No files found")
@@ -1689,11 +1838,21 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                             if type_name == saved_type:
                                 self._select_type(type_name, type_path, is_assets)
                                 
-                                # Load saved department
+                                # Load saved department, subdepartment, and user filter
                                 saved_dept_key = f"minibar_dept_{type_name}"
+                                saved_subdept_key = f"minibar_subdept_{type_name}"
+                                saved_user_key = f"minibar_user_{type_name}"
                                 saved_dept = self.s.value(saved_dept_key, "", type=str)
+                                saved_subdept = self.s.value(saved_subdept_key, "", type=str)
+                                saved_user = self.s.value(saved_user_key, "", type=str)
+                                
                                 if saved_dept:
-                                    self._select_department(saved_dept)
+                                    self._select_department(saved_dept, saved_subdept or None)
+                                
+                                # Restore user filter
+                                if saved_user:
+                                    self._select_user_filter(saved_user)
+                                
                                 break
                     return
             
@@ -1739,16 +1898,21 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 self.dept_btn.setFixedSize(type_width, scaled_size)
                 debug_print(f"🔍 Type/Dept button size: 70 → {type_width}")
                 
+                # Scale user button
+                user_width = int(60 * scale_factor)
+                self.user_btn.setFixedSize(user_width, scaled_size)
+                debug_print(f"🔍 User button size: 60 → {user_width}")
+                
                 # Scale handle
                 handle_width = int(20 * scale_factor)
                 self.handle_area.setFixedWidth(handle_width)
                 debug_print(f"🔍 Handle width: 20 → {handle_width}")
                 
                 # Scale file display
-                display_width = int(160 * scale_factor)
+                display_width = int(140 * scale_factor)
                 self.shot_display.setMinimumWidth(display_width)
                 self.shot_display.setMaximumWidth(display_width)
-                debug_print(f"🔍 File display width: 160 → {display_width}")
+                debug_print(f"🔍 File display width: 140 → {display_width}")
                 
                 # Update margins and spacing
                 layout = self.layout()
@@ -1773,6 +1937,236 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             traceback.print_exc()
     
     
+    def _show_settings_menu(self):
+        """Show settings menu with User/Settings/About options"""
+        menu = QtWidgets.QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
+            QMenu::item { padding:8px 16px; }
+            QMenu::item:selected { background:#3d5a99; }
+            QMenu::separator { height: 1px; background: #3a3a3a; }
+        """)
+        
+        # Get current username
+        from .file_manager_helpers import get_current_username
+        username = get_current_username()
+        
+        # User info action
+        user_action = menu.addAction(f"👤 User: {username}")
+        user_action.triggered.connect(self._show_user_info)
+        
+        menu.addSeparator()
+        
+        # Settings action
+        settings_action = menu.addAction("⚙️ Settings")
+        settings_action.triggered.connect(self._open_settings)
+        
+        # About action
+        about_action = menu.addAction("ℹ️ About")
+        about_action.triggered.connect(self._show_about)
+        
+        # Show menu
+        menu_pos = self.mapToGlobal(self.btn_settings.geometry().bottomLeft())
+        menu.exec_(menu_pos)
+    
+    def _show_user_info(self):
+        """Show user settings dialog"""
+        try:
+            from .file_manager_helpers import (
+                get_current_username, 
+                validate_username,
+                load_user_metadata,
+                register_user_activity
+            )
+            
+            # Create dialog
+            dialog = QtWidgets.QDialog(self)
+            dialog.setWindowTitle("User Settings")
+            dialog.setMinimumWidth(400)
+            dialog.setStyleSheet("""
+                QDialog { background: #2b2b2b; }
+                QLabel { color: #e5e5e5; }
+                QLineEdit { 
+                    background: #1e1e1e; 
+                    color: #e5e5e5; 
+                    border: 1px solid #3a3a3a; 
+                    border-radius: 4px; 
+                    padding: 6px;
+                }
+                QLineEdit:focus { border: 1px solid #3d5a99; }
+                QPushButton {
+                    background: #3a3a3a;
+                    color: #e5e5e5;
+                    border: 1px solid #4a4a4a;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background: #4a4a4a; }
+                QPushButton:pressed { background: #2a2a2a; }
+            """)
+            
+            layout = QtWidgets.QVBoxLayout(dialog)
+            layout.setSpacing(12)
+            layout.setContentsMargins(20, 20, 20, 20)
+            
+            # Get current values
+            current_username = get_current_username()
+            root = self.s.value("project_root", "", type=str)
+            project = self.s.value("current_project", "", type=str)
+            
+            user_info = {}
+            if root and project:
+                project_path = os.path.join(root, project)
+                metadata = load_user_metadata(project_path)
+                user_info = metadata.get('users', {}).get(current_username, {})
+            
+            # Info label
+            info_label = QtWidgets.QLabel("Configure your user profile:")
+            info_label.setStyleSheet("font-size: 12px; color: #999;")
+            layout.addWidget(info_label)
+            
+            # Username field
+            username_layout = QtWidgets.QFormLayout()
+            username_layout.setSpacing(8)
+            
+            username_edit = QtWidgets.QLineEdit(current_username)
+            username_edit.setPlaceholderText("e.g., john, mary, techartist")
+            username_layout.addRow("Username:", username_edit)
+            
+            username_hint = QtWidgets.QLabel("Lowercase letters, numbers, underscore only")
+            username_hint.setStyleSheet("font-size: 10px; color: #666; margin-left: 20px;")
+            layout.addLayout(username_layout)
+            layout.addWidget(username_hint)
+            
+            layout.addSpacing(8)
+            
+            # Full name field
+            fullname_layout = QtWidgets.QFormLayout()
+            fullname_layout.setSpacing(8)
+            
+            fullname_edit = QtWidgets.QLineEdit(user_info.get('full_name', ''))
+            fullname_edit.setPlaceholderText("e.g., John Smith")
+            fullname_layout.addRow("Full Name:", fullname_edit)
+            
+            # Email field
+            email_edit = QtWidgets.QLineEdit(user_info.get('email', ''))
+            email_edit.setPlaceholderText("e.g., john@studio.com")
+            fullname_layout.addRow("Email:", email_edit)
+            
+            layout.addLayout(fullname_layout)
+            
+            # Activity info (read-only)
+            if 'created' in user_info:
+                layout.addSpacing(12)
+                activity_label = QtWidgets.QLabel(
+                    f"First Activity: {user_info['created'][:10]}\n"
+                    f"Last Activity: {user_info.get('last_active', '')[:10]}"
+                )
+                activity_label.setStyleSheet("font-size: 10px; color: #666;")
+                layout.addWidget(activity_label)
+            
+            # Buttons
+            layout.addSpacing(12)
+            button_layout = QtWidgets.QHBoxLayout()
+            button_layout.addStretch()
+            
+            save_btn = QtWidgets.QPushButton("Save")
+            cancel_btn = QtWidgets.QPushButton("Cancel")
+            
+            button_layout.addWidget(cancel_btn)
+            button_layout.addWidget(save_btn)
+            layout.addLayout(button_layout)
+            
+            # Connect buttons
+            def save_user_settings():
+                new_username = username_edit.text().strip().lower()
+                full_name = fullname_edit.text().strip()
+                email = email_edit.text().strip()
+                
+                # Validate username
+                is_valid, error_msg = validate_username(new_username)
+                if not is_valid:
+                    hou.ui.displayMessage(
+                        f"Invalid username:\n{error_msg}",
+                        severity=hou.severityType.Warning,
+                        title="User Settings"
+                    )
+                    return
+                
+                # Save to QSettings
+                self.s.setValue("user_name", new_username)
+                self.s.sync()
+                
+                # Save to metadata if project configured
+                if root and project:
+                    project_path = os.path.join(root, project)
+                    register_user_activity(
+                        project_path, 
+                        new_username,
+                        full_name=full_name or new_username,
+                        email=email,
+                        department=None  # Don't save department from user settings
+                    )
+                
+                # Show success message
+                hou.ui.displayMessage(
+                    f"User settings saved!\n\nUsername: {new_username}",
+                    severity=hou.severityType.Message,
+                    title="User Settings"
+                )
+                
+                # Update settings menu display
+                debug_print(f"✅ User settings saved: {new_username}")
+                
+                dialog.accept()
+            
+            save_btn.clicked.connect(save_user_settings)
+            cancel_btn.clicked.connect(dialog.reject)
+            
+            # Show dialog
+            dialog.exec_()
+            
+        except Exception as e:
+            debug_print(f"⚠️ Error showing user settings: {e}")
+            hou.ui.displayMessage(
+                f"Error opening user settings:\n{str(e)}",
+                severity=hou.severityType.Error
+            )
+            import traceback
+            traceback.print_exc()
+    
+    def _show_about(self):
+        """Show about dialog with version and credits"""
+        try:
+            from mono_tools import __version__
+            version = __version__
+        except:
+            version = "2.3.0"
+        
+        about_text = f"""
+MonoStudio - Houdini Pipeline Tools
+Version: {version}
+
+Features:
+• File Manager with MiniBar
+• Hierarchical Departments & Subdepartments  
+• User Workspaces & Activity Tracking
+• Material Loader (Redshift/Karma)
+• Texture Search & Replace
+
+Requirements:
+• Houdini 21+ (PySide6)
+• Python 3.11+
+
+© 2024 MonoStudio
+        """.strip()
+        
+        hou.ui.displayMessage(
+            about_text,
+            severity=hou.severityType.Message,
+            title=f"About MonoStudio v{version}"
+        )
     
     def _open_settings(self):
         """Open settings dialog"""

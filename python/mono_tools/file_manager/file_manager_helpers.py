@@ -873,6 +873,214 @@ def collect_asset_files_hybrid(base_dir, asset_type=None, department=None, asset
 
 IGNORE_FOLDERS = {'backup', 'Vers', 'old', '.git', '__pycache__', '_thumbnail'}
 
+# ================ SUBDEPARTMENT & USER WORKSPACE PATTERNS ================
+
+# Subdepartment pattern: \d{2}_[a-z][a-z0-9_]*
+SUBDEPT_PATTERN = re.compile(r'^\d{2}_[a-z][a-z0-9_]*$')
+
+# Reserved system folders
+RESERVED_SYSTEM_FOLDERS = {'_publish', '_archive', '_thumbnail', 'Vers', 'backup'}
+
+# User workspace pattern: lowercase alphanumeric + underscore (no \d{2}_ prefix)
+USER_WORKSPACE_PATTERN = re.compile(r'^[a-z0-9_]+$')
+
+def get_subdepartments_for_department(dept_id):
+    """
+    Get subdepartments from config for a specific department
+    
+    Args:
+        dept_id: Department ID (e.g., "01_modeling", "02_sim")
+    
+    Returns:
+        List of subdepartment dicts with 'id', 'name', 'create_publish'
+    """
+    config = load_department_config()
+    if config:
+        # Check standard departments (assets)
+        if 'standard_departments' in config:
+            for dept in config['standard_departments']:
+                if dept['id'] == dept_id:
+                    return dept.get('subdepartments', [])
+        
+        # Check shot departments
+        if 'shot_departments' in config:
+            for dept in config['shot_departments']:
+                if dept['id'] == dept_id:
+                    return dept.get('subdepartments', [])
+    
+    return []
+
+def is_subdepartment_folder(folder_name, dept_id):
+    """
+    Check if folder is a valid subdepartment (not user folder)
+    
+    Args:
+        folder_name: Folder name to check
+        dept_id: Parent department ID
+    
+    Returns:
+        bool: True if it's a subdepartment, False if user folder
+    """
+    # Pattern check: Must be \d{2}_name
+    if not SUBDEPT_PATTERN.match(folder_name):
+        return False  # Not subdepartment format -> user folder
+    
+    # Config check: Must exist in config
+    subdepts = get_subdepartments_for_department(dept_id)
+    return folder_name in [s['id'] for s in subdepts]
+
+def is_user_workspace(folder_name):
+    """
+    Check if folder is a user workspace
+    
+    Rules:
+    - Lowercase alphanumeric + underscore
+    - NOT matching subdepartment pattern (\d{2}_)
+    - NOT reserved system folders
+    
+    Returns:
+        bool: True if it's a user workspace folder
+    """
+    # Reserved system folders
+    if folder_name in RESERVED_SYSTEM_FOLDERS:
+        return False
+    
+    # Subdepartment pattern (numeric prefix)
+    if re.match(r'^\d{2}_', folder_name):
+        return False
+    
+    # User workspace pattern
+    if USER_WORKSPACE_PATTERN.match(folder_name):
+        return True
+    
+    return False
+
+def validate_username(username):
+    """
+    Validate username format
+    
+    Returns:
+        (bool, str): (is_valid, error_message)
+    """
+    if not username:
+        return False, "Username cannot be empty"
+    
+    # Must be lowercase alphanumeric + underscore
+    if not USER_WORKSPACE_PATTERN.match(username):
+        return False, "Username must be lowercase letters, numbers, underscore only"
+    
+    # Cannot start with numbers (reserved for subdepartments)
+    if re.match(r'^\d{2}_', username):
+        return False, "Username cannot start with ## pattern (reserved)"
+    
+    # Max length
+    if len(username) > 20:
+        return False, "Username too long (max 20 characters)"
+    
+    return True, ""
+
+def get_current_username():
+    """
+    Get current username (auto-detect or from settings)
+    Returns: lowercase username
+    """
+    import getpass
+    
+    # Try to get from settings first
+    s = QtCore.QSettings(ORG, APP)
+    custom_username = s.value("user_name", "", type=str)
+    
+    if custom_username:
+        return custom_username.lower()
+    
+    # Auto-detect from OS
+    try:
+        os_username = getpass.getuser()
+        return os_username.lower().replace(' ', '_').replace('-', '_')
+    except:
+        return "user"
+
+def get_user_metadata_path(project_root):
+    """Get path to user metadata file"""
+    return os.path.join(project_root, ".mono", "users.json")
+
+def load_user_metadata(project_root):
+    """
+    Load user metadata from project
+    
+    Returns:
+        dict: User metadata or empty dict
+    """
+    metadata_path = get_user_metadata_path(project_root)
+    
+    if not os.path.exists(metadata_path):
+        return {"users": {}, "version": "1.0"}
+    
+    try:
+        with open(metadata_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Error loading user metadata: {e}")
+        return {"users": {}, "version": "1.0"}
+
+def save_user_metadata(project_root, metadata):
+    """Save user metadata to project"""
+    metadata_path = get_user_metadata_path(project_root)
+    
+    try:
+        # Create .mono directory if not exists
+        os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+        
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2, ensure_ascii=False)
+        
+        return True
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Error saving user metadata: {e}")
+        return False
+
+def register_user_activity(project_root, username, full_name=None, email=None, department=None):
+    """
+    Register or update user activity in metadata
+    
+    Args:
+        project_root: Project root directory
+        username: Username (lowercase)
+        full_name: Optional full name
+        email: Optional email
+        department: Optional department
+    """
+    from datetime import datetime
+    
+    metadata = load_user_metadata(project_root)
+    
+    if username not in metadata["users"]:
+        # New user - register
+        metadata["users"][username] = {
+            "full_name": full_name or username,
+            "email": email or "",
+            "department": department or "",
+            "created": datetime.now().isoformat(),
+            "last_active": datetime.now().isoformat()
+        }
+        if DEBUG:
+            debug_print(f"📝 Registered new user: {username}")
+    else:
+        # Existing user - update activity
+        metadata["users"][username]["last_active"] = datetime.now().isoformat()
+        
+        # Update info if provided
+        if full_name:
+            metadata["users"][username]["full_name"] = full_name
+        if email:
+            metadata["users"][username]["email"] = email
+        if department:
+            metadata["users"][username]["department"] = department
+    
+    save_user_metadata(project_root, metadata)
+
 def scan_project_types(base_dir):
     """
     Scan project directory for available types
@@ -951,13 +1159,17 @@ def scan_departments_for_type(base_dir, type_name, is_assets=True):
     # Sort departments
     return sorted(list(departments))
 
-def collect_files_with_filters(base_dir, type_name, department=None):
+def collect_files_with_filters(base_dir, type_name, department=None, subdept=None, username=None):
     """
     Main scan logic for files with filters (working .hip files only)
+    Supports: dept/files, dept/subdept/files, dept/user/files, dept/subdept/user/files
+    
     Args:
         base_dir: Project root directory
         type_name: Type name (e.g., "_characters", "Shots")
         department: Department filter (optional)
+        subdept: Subdepartment filter (optional)
+        username: User workspace filter (optional)
     Returns: List of (filepath, asset_name, department_name, file_info) tuples
     """
     if not base_dir or not type_name:
@@ -967,9 +1179,39 @@ def collect_files_with_filters(base_dir, type_name, department=None):
     is_assets = type_name != "Shots"
     file_extensions = HOUDINI_EXTS  # Always scan .hip files only
     
+    def scan_directory_recursive(scan_path, asset_name, dept_name, max_depth=2, current_depth=0, is_shots=False):
+        """Recursively scan directory for files, skipping subdepts/users not in filter"""
+        if current_depth > max_depth or not os.path.isdir(scan_path):
+            return
+        
+        for entry in os.scandir(scan_path):
+            if entry.name.startswith('.') or entry.name in IGNORE_FOLDERS:
+                continue
+            
+            if entry.is_file():
+                # Found a file - check if it's a valid Houdini file
+                if os.path.splitext(entry.name)[1].lower() in file_extensions:
+                    # For shots, extract shot name from filename instead of using dept name
+                    display_name = asset_name
+                    if is_shots:
+                        display_name = infer_shot(entry.path)
+                    
+                    file_info = {
+                        'filename': entry.name,
+                        'version': parse_ver(entry.name),
+                        'size': entry.stat().st_size,
+                        'modified': entry.stat().st_mtime
+                    }
+                    results.append((entry.path, display_name, dept_name, file_info))
+            
+            elif entry.is_dir():
+                # Found a subdirectory - could be subdept or user workspace
+                # Continue scanning recursively
+                scan_directory_recursive(entry.path, asset_name, dept_name, max_depth, current_depth + 1, is_shots)
+    
     try:
         if is_assets:
-            # Assets: scan type/asset_name/department/files
+            # Assets: scan type/asset_name/department/[subdept/][user/]files
             type_dir = os.path.join(base_dir, "01_assets", type_name)
             if not os.path.isdir(type_dir):
                 return []
@@ -993,27 +1235,27 @@ def collect_files_with_filters(base_dir, type_name, department=None):
                             if department and dept_name != department:
                                 continue
                             
-                            # Scan working files only (not in _publish/)
-                            scan_path = dept_entry.path
+                            # Determine scan path based on subdept filter
+                            if subdept:
+                                # Only scan specific subdepartment
+                                scan_path = os.path.join(dept_entry.path, subdept)
+                                if not os.path.isdir(scan_path):
+                                    continue
+                            else:
+                                # Scan entire department (including subdepts and user workspaces)
+                                scan_path = dept_entry.path
                             
-                            if not os.path.isdir(scan_path):
-                                continue
-                            
-                            # Scan files
-                            for file_entry in os.scandir(scan_path):
-                                if (file_entry.is_file() and 
-                                    os.path.splitext(file_entry.name)[1].lower() in file_extensions):
-                                    
-                                    file_info = {
-                                        'filename': file_entry.name,
-                                        'version': parse_ver(file_entry.name),
-                                        'size': file_entry.stat().st_size,
-                                        'modified': file_entry.stat().st_mtime
-                                    }
-                                    
-                                    results.append((file_entry.path, asset_name, dept_name, file_info))
+                            # Apply username filter if specified
+                            if username:
+                                # Only scan specific user workspace
+                                user_path = os.path.join(scan_path, username)
+                                if os.path.isdir(user_path):
+                                    scan_directory_recursive(user_path, asset_name, dept_name, max_depth=1)
+                            else:
+                                # Scan all (subdepts, users, and direct files)
+                                scan_directory_recursive(scan_path, asset_name, dept_name, max_depth=2)
         else:
-            # Shots: scan department/files
+            # Shots: scan department/[subdept/][user/]files
             shots_dir = os.path.join(base_dir, "02_shots")
             if not os.path.isdir(shots_dir):
                 return []
@@ -1029,28 +1271,28 @@ def collect_files_with_filters(base_dir, type_name, department=None):
                     if department and dept_name != department:
                         continue
                     
-                    # Scan working files only (not in _publish/)
-                    scan_path = dept_entry.path
+                    # Determine scan path based on subdept filter
+                    if subdept:
+                        # Only scan specific subdepartment
+                        scan_path = os.path.join(dept_entry.path, subdept)
+                        if not os.path.isdir(scan_path):
+                            continue
+                    else:
+                        # Scan entire department (including subdepts and user workspaces)
+                        scan_path = dept_entry.path
                     
-                    if not os.path.isdir(scan_path):
-                        continue
+                    # For shots, shot name will be extracted from filename in scan function
+                    shot_name = ""  # Placeholder, will be extracted from filename
                     
-                    # Scan files
-                    for file_entry in os.scandir(scan_path):
-                        if (file_entry.is_file() and 
-                            os.path.splitext(file_entry.name)[1].lower() in file_extensions):
-                            
-                            # Extract shot name from filename
-                            shot_name = infer_shot(file_entry.path)
-                            
-                            file_info = {
-                                'filename': file_entry.name,
-                                'version': parse_ver(file_entry.name),
-                                'size': file_entry.stat().st_size,
-                                'modified': file_entry.stat().st_mtime
-                            }
-                            
-                            results.append((file_entry.path, shot_name, dept_name, file_info))
+                    # Apply username filter if specified
+                    if username:
+                        # Only scan specific user workspace
+                        user_path = os.path.join(scan_path, username)
+                        if os.path.isdir(user_path):
+                            scan_directory_recursive(user_path, shot_name, dept_name, max_depth=1, is_shots=True)
+                    else:
+                        # Scan all (subdepts, users, and direct files)
+                        scan_directory_recursive(scan_path, shot_name, dept_name, max_depth=2, is_shots=True)
                             
     except Exception as e:
         if DEBUG: print(f"⚠️ Error collecting files with filters: {e}")

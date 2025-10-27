@@ -343,14 +343,38 @@ Root level:
 - **Reports**: 3 docs (Cleanup, No Install, Position Analysis)
 - **Other Tools**: 2 docs (Texture Search, Tool Distribution)
 
-### Recent Additions (2025-01-10)
-- ✨ [Assets_Manager_Plan.md](./Assets_Manager_Plan.md) - NEW
-- ✨ [Assets_Manager_Workflow.md](./Assets_Manager_Workflow.md) - NEW
-- ✨ [Assets_Manager_Summary.md](./Assets_Manager_Summary.md) - NEW
-- ✨ [MonoStudio_Ecosystem.md](./MonoStudio_Ecosystem.md) - NEW
-- ✨ [PLANNING_PHASE_COMPLETE.md](./PLANNING_PHASE_COMPLETE.md) - NEW
+### Recent Additions (2025-01-10) - Day 1
+
+**Planning Phase:**
+- ✨ [Assets_Manager_Plan.md](./Assets_Manager_Plan.md) - Technical design (50+ pages)
+- ✨ [Assets_Manager_Workflow.md](./Assets_Manager_Workflow.md) - Integration (40+ pages)
+- ✨ [Assets_Manager_Summary.md](./Assets_Manager_Summary.md) - Quick reference
+- ✨ [MonoStudio_Ecosystem.md](./MonoStudio_Ecosystem.md) - Complete overview (60+ pages)
+- ✨ [PLANNING_PHASE_COMPLETE.md](./PLANNING_PHASE_COMPLETE.md) - Planning summary
+
+**Implementation:**
+- ✨ [PHASE1_COMPLETE.md](./PHASE1_COMPLETE.md) - Phase 1 report
+- ✨ [PHASE2_COMPLETE.md](./PHASE2_COMPLETE.md) - Phase 2 report
+- ✨ [IMPLEMENTATION_PROGRESS.md](./IMPLEMENTATION_PROGRESS.md) - Progress tracker
+- ✨ [ARCHITECTURE_DECISION.md](./ARCHITECTURE_DECISION.md) - Architecture doc
+
+**Summaries:**
+- ✨ [DAY1_SUMMARY.md](./DAY1_SUMMARY.md) - Day 1 summary (English)
+- ✨ [TONG_KET_NGAY1.md](./TONG_KET_NGAY1.md) - Tổng kết (Tiếng Việt)
+- ✨ [PROGRESS_VISUAL.md](./PROGRESS_VISUAL.md) - Visual progress
+- ✨ [ASSETS_MANAGER_FILES.md](./ASSETS_MANAGER_FILES.md) - File list
+
+**Root Level:**
+- ✨ [ASSETS_MANAGER_DAY1.md](../ASSETS_MANAGER_DAY1.md) - Quick overview
+- ✨ [ASSETS_MANAGER_README.md](../ASSETS_MANAGER_README.md) - Quick start
+- ✨ [SUMMARY.md](../SUMMARY.md) - Final summary
 - ✨ [INDEX.md](./INDEX.md) - NEW (this file)
-- 🔄 [instructions.md](../instructions.md) - UPDATED (Assets Manager section)
+
+**Updates:**
+- 🔄 [instructions.md](../instructions.md) - Assets Manager section
+- 🔄 [python/mono_tools/assets_manager/README.md](../python/mono_tools/assets_manager/README.md) - User guide
+
+**Total**: 17 new documents, 2 updated, 150+ pages!
 
 ---
 
