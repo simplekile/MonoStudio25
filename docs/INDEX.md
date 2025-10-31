@@ -174,6 +174,21 @@
 
 #### Cleanup & Optimization
 - **[Project_Cleanup_Report.md](./Project_Cleanup_Report.md)**
+- **[GIT_HISTORY_CLEANUP_SHELVES.md](./GIT_HISTORY_CLEANUP_SHELVES.md)**
+  - Git history rewrite process
+  - Shelf files permanent removal
+  - Force push requirements
+  - Team coordination notes
+
+#### Git & Repository Management
+- **[GITIGNORE_UPDATE.md](./GITIGNORE_UPDATE.md)**
+  - Auto-ignore patterns
+  - File cleanup rules
+  - Development guidelines
+- **[GIT_HISTORY_CLEANUP_SHELVES.md](./GIT_HISTORY_CLEANUP_SHELVES.md)**
+  - History rewrite documentation
+  - Shelf files removal
+  - Repository cleanup
   - Files removed (20+)
   - Structure optimized
   - Improvements made
