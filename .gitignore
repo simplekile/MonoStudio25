@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
+*.pyc
+*.pyo
 
 # Temporary files
 *.tmp
@@ -16,11 +18,13 @@ __pycache__/
 # Logs
 *.log
 startup_debug.log
+*.log.*
 
 # IDEs
 .vscode/
 .idea/
 *.code-workspace
+.cursor/
 
 # OS
 .DS_Store
@@ -28,6 +32,25 @@ Thumbs.db
 desktop.ini
 
 # Project specific
-*.pyc
-*.pyo
+# Debug and test files (keep test_demo/ for development but ignore debug ones)
+**/debug_*.py
+**/test_*_debug.py
+**/test_*_position_debug.py
+
+# Analysis and migration scripts (internal tools)
+python/analysis/
+python/migration/
+
+# Utilities (keep utilities but ignore internal helper scripts)
+# Note: Utilities may be useful for distribution, so keeping them
+# python/utilities/*.py
+# !python/utilities/__init__.py
+
+# Test files in testing folder (keep for reference)
+# python/testing/*.py
+# !python/testing/__init__.py
+
+# Documentation that's auto-generated or temporary
+docs/*_SUCCESS_*.md
+docs/CLEANUP_BEFORE_PUBLISH.md
 
