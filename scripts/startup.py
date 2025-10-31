@@ -15,7 +15,7 @@ with open(debug_file, 'w', encoding='utf-8') as f:
 import hou
 from mono_tools.qt import QtCore
 
-print("🚀 Mono Studio v2.2.0 - Loading...")
+print("🚀 Mono Studio v2.3.0 - Loading...")
 print(f"📍 Script path: {__file__}")
 
 # Setup menus

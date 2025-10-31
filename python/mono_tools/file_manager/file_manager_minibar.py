@@ -237,7 +237,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             version_action.setEnabled(False)  # Disabled, just for display
         except Exception as e:
             debug_print(f"⚠️ Error loading version: {e}")
-            version_action = menu.addAction("ℹ️ v2.2.0")
+            version_action = menu.addAction("ℹ️ v2.3.0")
             version_action.setEnabled(False)
         
         # Show menu
