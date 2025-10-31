@@ -57,3 +57,32 @@ python/testing/*.py
 docs/*_SUCCESS_*.md
 docs/CLEANUP_BEFORE_PUBLISH.md
 
+# Shelf files - Experimental/Test versions (keep only MonoStudio.shelf, MonoStudioAdvanced.shelf)
+shelves/*_Test*.shelf
+shelves/*_Fixed*.shelf
+shelves/*_Alternative*.shelf
+shelves/*_Real*.shelf
+shelves/*_XML*.shelf
+shelves/*_experimental*.shelf
+shelves/*_backup*.shelf
+shelves/*_old*.shelf
+
+# Quick test files (temporary)
+**/quick_test_*.py
+**/temp_*.py
+**/scratch_*.py
+**/experiment_*.py
+**/experimental_*.py
+
+# Backup and old versions
+**/*_backup.*
+**/*_old.*
+**/*_v[0-9]*_backup.*
+**/*_copy.*
+**/*_duplicate.*
+
+# Temporary analysis/output files
+**/output_*.txt
+**/result_*.json
+**/analysis_output.*
+

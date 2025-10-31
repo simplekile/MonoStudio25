@@ -230,6 +230,67 @@ docs/
 - `[feature]_config.json` - Configuration files
 - `[feature]_settings.py` - Settings modules
 
+#### 🚫 **Auto-Ignore File Patterns (DO NOT CREATE)**
+
+The following file patterns are **automatically ignored** by `.gitignore`. **NEVER create files matching these patterns** unless absolutely necessary:
+
+##### **❌ Shelf Files - Test/Experimental Versions**
+```
+# These will be auto-ignored:
+shelves/*_Test*.shelf          # Test versions
+shelves/*_Fixed*.shelf         # Fixed versions (create new version instead)
+shelves/*_Alternative*.shelf   # Alternative versions
+shelves/*_Real*.shelf          # Test versions
+shelves/*_XML*.shelf           # XML test versions
+shelves/*_experimental*.shelf  # Experimental versions
+shelves/*_backup*.shelf        # Backup versions
+shelves/*_old*.shelf           # Old versions
+
+# ✅ Keep only these official shelf files:
+shelves/MonoStudio.shelf               # Main shelf
+shelves/MonoStudioAdvanced.shelf      # Advanced version
+shelves/MonoStudio_Professional.shelf # Professional version (optional)
+```
+
+##### **❌ Temporary/Test Python Files**
+```
+# These will be auto-ignored:
+**/quick_test_*.py      # Quick temporary tests
+**/temp_*.py            # Temporary files
+**/scratch_*.py         # Scratch/test files
+**/experiment_*.py      # Experimental files
+**/experimental_*.py    # Experimental versions
+```
+
+##### **❌ Backup/Old Version Files**
+```
+# These will be auto-ignored:
+**/*_backup.*           # Backup files
+**/*_old.*              # Old version files
+**/*_v[0-9]*_backup.*   # Version backups
+**/*_copy.*             # Copy files
+**/*_duplicate.*        # Duplicate files
+```
+
+##### **✅ Instead, Use Proper Naming:**
+```
+# ✅ CORRECT - Use version control or proper naming:
+python/mono_tools/file_manager/file_manager.py      # Main file
+python/mono_tools/test_demo/test_file_manager.py    # Proper test
+docs/File_Manager_Guide.md                          # Documentation
+
+# ❌ WRONG - Will be auto-ignored:
+python/temp_file_manager.py                         # Use test_demo/ instead
+shelves/MonoStudio_TestIcons.shelf                  # Create new version instead
+file_manager_backup.py                              # Use git versioning instead
+```
+
+##### **📝 Rule of Thumb:**
+1. **Use git** for versioning, not `_backup`, `_old`, `_copy` suffixes
+2. **Use test_demo/** for tests, not `quick_test_*`, `temp_*`
+3. **Create new shelf versions** only when needed, name them descriptively
+4. **Delete experimental files** after testing, don't keep `_experimental` versions
+
 #### 🗂️ **Folder Creation Rules (UPDATED)**
 
 ##### **When to Create New Folders**
