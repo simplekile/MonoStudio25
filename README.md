@@ -1,4 +1,4 @@
-# Mono Studio v2.0.0
+# Mono Studio v2.3.0
 
 A professional Houdini package with powerful tools for file management, material loading, and texture search & replace.
 
@@ -18,9 +18,14 @@ A professional Houdini package with powerful tools for file management, material
 ## 🛠️ **Tools Included**
 
 ### **1. File Manager**
-- **Access**: Menu + Shelf + Python
-- **Features**: File browsing, version management, project organization
-- **MiniBar**: Quick access in top-right corner
+- **Access**: Menu + Shelf + Python + MiniBar
+- **Features**: 
+  - File browsing, version management, project organization
+  - New Folder: Auto-create complete asset/shot structure
+  - New File: Auto-naming with smart prefixes
+  - Asset Types UI management
+  - Subdepartment support
+- **MiniBar**: Quick access in top-right corner with draggable positioning
 
 ### **2. Material Loader**
 - **Access**: Menu + Shelf + Python
@@ -37,19 +42,24 @@ A professional Houdini package with powerful tools for file management, material
 ```
 MonoStudio25/
 ├── README.md                    # This file
-├── INSTALL.md                   # Installation guide
-├── install.py                   # Simple installer
 ├── MonoStudio_package.json      # Houdini package definition
 ├── instructions.md              # Development guidelines
 ├── LICENSE                      # License file
 ├── python/                      # Python package
 │   └── mono_tools/              # Main tools package
+│       ├── file_manager/        # File Manager tool
+│       ├── material_loader/     # Material Loader tool
+│       ├── texture_search_replace/  # Texture Search & Replace
+│       └── assets_manager/      # Assets Manager (in development)
 ├── menus/                       # Houdini menu definitions
 ├── shelves/                     # Houdini shelf definitions
 ├── scripts/                     # Startup scripts
+├── python3.11libs/              # Houdini startup scripts
 ├── otls/                        # Houdini OTL files
 ├── toolbar/                     # Houdini toolbar files
 ├── config/                      # Configuration files
+│   ├── asset_departments.json   # Asset department config
+│   └── shot_departments.json    # Shot department config
 └── docs/                        # Documentation
 ```
 
@@ -130,8 +140,36 @@ See LICENSE file for details.
 
 ## 🎉 **Version History**
 
-- **v2.0.0** - PySide6 support, clean project structure, professional installer
-- **v1.x** - Legacy versions
+### **v2.3.0** (Current) - Major Improvements
+- Custom styled dialogs (ChoiceDialog, InputDialog) replacing Houdini native
+- Asset vs Shot department separation with dedicated configs
+- UI modularization with reusable components (MonoBaseDialog, SmartLineEdit)
+- SmartLineEdit with Chrome-style autocomplete
+- Asset Types UI management (Add/Edit/Remove)
+- Subdepartment support matching template structure
+- New Folder/File features with auto-naming
+- MiniBar position fixes and improvements
+- Project cleanup and folder organization
+- Simplified startup system
+- Better error handling and debug mode
+
+### **v2.2.0**
+- Simplified startup system (200+ → 45 lines)
+- Menu integration fixes
+- Performance optimizations
+- Position system simplification
+- New File/Folder creation features
+
+### **v2.1.x**
+- Various bug fixes and improvements
+
+### **v2.0.0**
+- PySide6 support
+- Clean project structure
+- Professional installer
+
+### **v1.x**
+- Legacy versions
 
 ---
 
