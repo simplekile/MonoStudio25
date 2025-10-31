@@ -41,14 +41,17 @@ desktop.ini
 python/analysis/
 python/migration/
 
-# Utilities (keep utilities but ignore internal helper scripts)
-# Note: Utilities may be useful for distribution, so keeping them
-# python/utilities/*.py
-# !python/utilities/__init__.py
+# Utilities - Development tools (ignore, keep legacy if needed)
+python/utilities/update_version.py
+python/utilities/cleanup_before_publish.py
+python/utilities/replace_prints.py
+python/utilities/mono_startup.py
+python/utilities/uiready.py
+# Note: Mono_MaterialLoader.py kept as legacy (may be needed)
 
-# Test files in testing folder (keep for reference)
-# python/testing/*.py
-# !python/testing/__init__.py
+# Test files in testing folder (internal development only)
+python/testing/*.py
+!python/testing/__init__.py
 
 # Documentation that's auto-generated or temporary
 docs/*_SUCCESS_*.md
