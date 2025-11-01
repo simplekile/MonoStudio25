@@ -1,4 +1,4 @@
-# Mono Studio v2.3.0
+# Mono Studio v2.4.0
 
 A professional Houdini package with powerful tools for file management, material loading, and texture search & replace.
 
@@ -140,7 +140,18 @@ See LICENSE file for details.
 
 ## 🎉 **Version History**
 
-### **v2.3.0** (Current) - Major Improvements
+### **v2.4.0** (Current) - UI Improvements & Styling
+- **Centralized styling system** - Extracted all styles to `ui/styles.py` module
+- **Enhanced file display** - Shows full file name instead of just shot name
+- **Smart note display** - Notes shown smaller, dimmed, and properly separated from file name
+- **Improved hover behavior** - Unified hover for menu items with notes
+- **Auto-refresh on dropdowns** - Automatically refreshes files when opening any menu (type, dept, user, files)
+- **Cleaner current file indicator** - Removed emoji and "(Current)" text, uses bold only
+- **Consistent UI styling** - All dialogs now use centralized style system
+- **Fixed user filter** - Properly filters by user when subfolder is "all files"
+- **Better file parsing** - Improved handling of complex note patterns in file names
+
+### **v2.3.0** - Major Improvements
 - Custom styled dialogs (ChoiceDialog, InputDialog) replacing Houdini native
 - Asset vs Shot department separation with dedicated configs
 - UI modularization with reusable components (MonoBaseDialog, SmartLineEdit)
