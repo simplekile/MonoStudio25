@@ -5,15 +5,30 @@ A professional Houdini package with powerful tools for file management, material
 ## 🚀 **Quick Start**
 
 ### **Setup:**
-1. Copy `MonoStudio_package.json` to your Houdini packages directory:
+
+#### **1. Install Package:**
+Copy `MonoStudio_package.json` to your Houdini packages directory:
    - **Windows**: `Documents/houdini21.0/packages/`
    - **macOS**: `~/Library/Preferences/houdini/21.0/packages/`
    - **Linux**: `~/houdini21.0/packages/`
 
-2. Restart Houdini
+#### **2. Install Shelf (Optional but Recommended):**
+Copy shelf files to your Houdini shelves directory:
+   - **Windows**: `Documents/houdini21.0/shelves/`
+   - **macOS**: `~/Library/Preferences/houdini/21.0/shelves/`
+   - **Linux**: `~/.houdini/21.0/shelves/`
 
-3. Check for "Mono Studio" menu and shelf
-4. Check for MiniBar in top-right corner
+   Available shelf files:
+   - `MonoStudio.shelf` - Basic tools
+   - `MonoStudio_Professional.shelf` - Professional workflow tools
+   - `MonoStudioAdvanced.shelf` - Advanced features
+
+#### **3. Restart Houdini**
+
+#### **4. Verify Installation:**
+- ✅ Check for "Mono Studio" menu in menu bar
+- ✅ Check for "Mono Studio" shelf tab
+- ✅ Check for MiniBar in top-right corner
 
 ## 🛠️ **Tools Included**
 
@@ -114,8 +129,16 @@ show_texture_search_replace()
 - **Mono Studio** → **Texture Search & Replace**
 
 ### **Shelf Access:**
-- **Mono Studio** shelf with 4 tools
+- **Mono Studio** shelf with tools:
+  - 📁 **File Manager** - Open main file manager dialog
+  - ⚡ **MiniBar** - Quick access file browser (top-right corner)
+  - 🎨 **Material Loader** - Load materials from texture folders
+  - 🖼️ **Texture Tools** - Search & replace texture paths
 - Click buttons to launch tools
+- Available shelf variants:
+  - `MonoStudio.shelf` - Basic tools
+  - `MonoStudio_Professional.shelf` - Professional workflow
+  - `MonoStudioAdvanced.shelf` - Advanced features
 
 ## 🆘 **Troubleshooting**
 
