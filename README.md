@@ -14,9 +14,9 @@ Copy `MonoStudio_package.json` to your Houdini packages directory:
 
 #### **2. Install Shelf (Optional but Recommended):**
 Copy shelf files to your Houdini shelves directory:
-   - **Windows**: `Documents/houdini21.0/shelves/`
-   - **macOS**: `~/Library/Preferences/houdini/21.0/shelves/`
-   - **Linux**: `~/.houdini/21.0/shelves/`
+   - **Windows**: `Documents/houdini21.0/toolbar/`
+   - **macOS**: `~/Library/Preferences/houdini/21.0/toolbar/`
+   - **Linux**: `~/.houdini/21.0/toolbar/`
 
    Available shelf files:
    - `MonoStudio.shelf` - Basic tools
