@@ -1,6 +1,34 @@
-# Mono Studio v2.4.0
+# Mono Studio v2.5.0
 
 A professional Houdini package with powerful tools for file management, material loading, and texture search & replace.
+
+## 📝 **Version History**
+
+### **v2.5.0 (Current) - File Naming Format & Enhanced Display**
+
+#### ✨ **New Features:**
+1. **New File Naming Format Support**:
+   - Shots: `Shots_{number}_{department}_{version}_{description}`
+   - Assets: `{type}_{name}_{department}_{version}_{description}`
+   - Example: `Shots_001_lighting_v003_fixlight.hip`
+
+2. **Enhanced Display System**:
+   - **Label**: Shows simplified format `Shots_001(v001)` or `char_Aya(v001)`
+   - **Dropdown**: Shows full format `Shots_001(v001) • lighting • fixlight`
+   - **Department**: Color-coded display (light blue `#4a9eff`)
+   - **Description**: Dimmed gray display (`#888`)
+
+3. **Improved Parsing**:
+   - Smart filename parsing for both Shots and Assets
+   - Automatic extraction of type, name, number, department, version, and description
+   - Fallback parsing for legacy filename formats
+
+#### 🎨 **UI Improvements:**
+- Department text uses distinct color for better visibility
+- Consistent styling across all file displays
+- Enhanced tooltip with full file information
+
+### **v2.4.0** - UI Improvements & Styling
 
 ## 🚀 **Quick Start**
 
@@ -163,7 +191,7 @@ See LICENSE file for details.
 
 ## 🎉 **Version History**
 
-### **v2.4.0** (Current) - UI Improvements & Styling
+### **v2.4.0** - UI Improvements & Styling
 - **Centralized styling system** - Extracted all styles to `ui/styles.py` module
 - **Enhanced file display** - Shows full file name instead of just shot name
 - **Smart note display** - Notes shown smaller, dimmed, and properly separated from file name

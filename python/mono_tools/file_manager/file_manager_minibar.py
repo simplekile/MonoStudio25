@@ -3,7 +3,11 @@ import re
 import subprocess
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import hou
-from .ui.styles import get_menu_style, get_note_style, get_note_font_size, COLOR_SELECTED, COLOR_BG_DARK
+from .ui.styles import (
+    get_menu_style, get_note_style, get_note_font_size, 
+    COLOR_SELECTED, COLOR_BG_DARK, COLOR_CURRENT_FILE,
+    get_department_style, get_department_font_size
+)
 from .file_manager_helpers import (
     ORG, APP, collect_files, get_current_houdini_file, is_current_file, 
     infer_shot, parse_ver, open_in_explorer, get_render_folder_path, 
@@ -236,7 +240,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             version_action.setEnabled(False)  # Disabled, just for display
         except Exception as e:
             debug_print(f"⚠️ Error loading version: {e}")
-            version_action = menu.addAction("ℹ️ v2.4.0")
+            version_action = menu.addAction("ℹ️ v2.5.0")
             version_action.setEnabled(False)
         
         # Show menu
@@ -766,42 +770,91 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                     self.combo.blockSignals(True); self.combo.setCurrentIndex(i); self.combo.blockSignals(False); self._update_shot_display(i)
                 break
 
+    def _parse_filename_parts(self, filename):
+        """
+        Parse filename theo format mới:
+        - Shots: Shots_{number}_{department}_{version}_{description}
+        - Assets: {type}_{name}_{department}_{version}_{description}
+        
+        Returns: dict with keys: type, name, number, department, version, description, display_name
+        """
+        name_no_ext = os.path.splitext(filename)[0]
+        
+        # Try Shots pattern: Shots_{number}_{department}_{version}_{description}
+        shot_match = re.match(r'^(Shots)_(\d+)_(\w+)_(v\d+)(?:_(.+))?$', name_no_ext, re.IGNORECASE)
+        if shot_match:
+            return {
+                'type': shot_match.group(1),
+                'name': None,
+                'number': shot_match.group(2),
+                'department': shot_match.group(3),
+                'version': shot_match.group(4),
+                'description': shot_match.group(5) or "",
+                'display_name': f"{shot_match.group(1)}_{shot_match.group(2)}",  # Shots_001
+                'is_shot': True
+            }
+        
+        # Try Asset pattern: {type}_{name}_{department}_{version}_{description}
+        asset_match = re.match(r'^(char|prop|env|veh|fx|graphic)_([^_]+)_(\w+)_(v\d+)(?:_(.+))?$', name_no_ext, re.IGNORECASE)
+        if asset_match:
+            return {
+                'type': asset_match.group(1),
+                'name': asset_match.group(2),
+                'number': None,
+                'department': asset_match.group(3),
+                'version': asset_match.group(4),
+                'description': asset_match.group(5) or "",
+                'display_name': f"{asset_match.group(1)}_{asset_match.group(2)}",  # char_Aya
+                'is_shot': False
+            }
+        
+        # Fallback: parse version and description using old method
+        ver_str = parse_ver(filename)
+        note_match = re.search(r'[._-]v\d+[._-](.+)$', name_no_ext, re.IGNORECASE)
+        note_text = note_match.group(1) if note_match and note_match.group(1) else ""
+        
+        if note_text:
+            display_name = re.sub(r'[._-]v\d+[._-].+$', '', name_no_ext)
+        else:
+            display_name = re.sub(r'[._-]v\d+$', '', name_no_ext)
+            display_name = re.sub(r'[._-]v\d+[._-](?![A-Za-z0-9])', '_', display_name)
+        display_name = display_name.rstrip('_-.')
+        
+        return {
+            'type': None,
+            'name': None,
+            'number': None,
+            'department': None,
+            'version': ver_str or "",
+            'description': note_text,
+            'display_name': display_name or "Unknown",
+            'is_shot': None
+        }
+
     def _update_shot_display(self, idx):
         if idx >= 0 and idx < self.combo.count():
             fp = self.combo.itemData(idx, role=QtCore.Qt.UserRole)
             if fp:
-                # Prefer full filename (without version + extension) over inferred shot
                 filename = os.path.basename(fp)
-                name_without_ext = os.path.splitext(filename)[0]
+                parts = self._parse_filename_parts(filename)
                 
-                # First, extract note if it exists after version (everything after version separator)
-                note_match = re.search(r'[._-]v\d+[._-](.+)$', name_without_ext, re.IGNORECASE)
-                note_text = note_match.group(1) if note_match and note_match.group(1) else ""
-                
-                # Remove version pattern and any note after it from filename
-                if note_text:
-                    # Remove version + all note text after it: [sep]v[digits][sep][all note]
-                    display_name = re.sub(r'[._-]v\d+[._-].+$', '', name_without_ext)
+                # Label chỉ hiển thị: Shots_001(v001) hoặc char_Aya(v001)
+                if parts['version']:
+                    label_text = f"{parts['display_name']}({parts['version']})"
                 else:
-                    # No note, just remove version at end
-                    display_name = re.sub(r'[._-]v\d+$', '', name_without_ext)
-                    # If version is in middle (followed by separator but not note), remove it
-                    display_name = re.sub(r'[._-]v\d+[._-](?![A-Za-z0-9])', '_', display_name)
+                    label_text = parts['display_name']
                 
-                # Clean up trailing separators
-                display_name = display_name.rstrip('_-.')
-                ver_str = parse_ver(filename)
-                if not display_name:
-                    display_name = self.combo.itemData(idx, role=QtCore.Qt.UserRole+2) or infer_shot(fp) or "Unknown"
-                # Label shows name (+ note if present). Tooltip shows name + version + note
-                label_text = f"{display_name} • {note_text}" if note_text else display_name
-                tooltip_text = display_name
-                if ver_str:
-                    tooltip_text += f"({ver_str})"
-                if note_text:
-                    tooltip_text += f"\n📝 {note_text}"
+                # Tooltip hiển thị đầy đủ
+                tooltip_parts = [parts['display_name']]
+                if parts['version']:
+                    tooltip_parts.append(parts['version'])
+                if parts['department']:
+                    tooltip_parts.append(f"Dept: {parts['department']}")
+                if parts['description']:
+                    tooltip_parts.append(f"📝 {parts['description']}")
+                
                 self.shot_display.setText(label_text)
-                self.shot_display.setToolTip(f"Current: {tooltip_text}\nClick to change")
+                self.shot_display.setToolTip(f"Current: {' • '.join(tooltip_parts)}\nClick to change")
             else:
                 self.shot_display.setText("No files")
                 self.shot_display.setToolTip("No files available")
@@ -931,6 +984,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         # Refresh files when opening dropdown to ensure latest files are shown
         self._refresh_files_for_current_tab()
         
+        # Get current file AFTER refresh to ensure path matching is correct
+        current_file = get_current_houdini_file()
+        
         if self.combo.count() == 0:
             # Show better message based on context
             type_name = self.current_type
@@ -980,19 +1036,27 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             if shot not in shot_files or ver_num > shot_files[shot]['version']:
                 shot_files[shot] = {'index': i, 'version': ver_num, 'ver_str': ver_str, 'display_name': display_name}
-        current_file = get_current_houdini_file()
+        # current_file already obtained at start of function, after refresh
+        # Debug: Check if current_file is detected
+        if DEBUG and current_file:
+            debug_print(f"🔍 Current file detected: {current_file}")
         for shot in sorted(shot_files.keys()):
             file_info = shot_files[shot]; idx = file_info['index']
-            fp = self.combo.itemData(idx, role=QtCore.Qt.UserRole); is_cur = is_current_file(fp) if current_file else False
-            # Use display_name instead of shot for better readability
-            display_name = file_info.get('display_name', shot)
+            fp = self.combo.itemData(idx, role=QtCore.Qt.UserRole)
+            # Always check if file is current, even if current_file might be None
+            is_cur = is_current_file(fp) if fp else False
+            if DEBUG and is_cur:
+                debug_print(f"✅ File marked as current: {os.path.basename(fp)}")
+            # Parse filename parts để lấy department và description
             filename = os.path.basename(fp)
-            base_no_ext = os.path.splitext(filename)[0]
-            # Extract note using same pattern as above (everything after version separator)
-            note_match = re.search(r'[._-]v\d+[._-](.+)$', base_no_ext, re.IGNORECASE)
-            note_text = note_match.group(1) if note_match and note_match.group(1) else ""
-            # Build display text with note styling (smaller, lighter, not bold)
-            if file_info['ver_str'] and note_text:
+            parts = self._parse_filename_parts(filename)
+            display_name = parts['display_name']
+            ver_str = parts['version'] or file_info.get('ver_str', '')
+            department_text = parts['department'] or ""
+            note_text = parts['description'] or ""
+            
+            # Build display text với department có màu khác
+            if ver_str and (department_text or note_text):
                 # Use custom widget to style note separately
                 widget_action = QtWidgets.QWidgetAction(menu)
                 widget = QtWidgets.QWidget()
@@ -1003,9 +1067,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
                 # Set style to match menu item hover - widget will show background on hover
                 # Important: Labels inside should not block hover events
+                # Use current file background if this is the current file
+                bg_color = COLOR_CURRENT_FILE if is_cur else COLOR_BG_DARK
                 widget.setStyleSheet(f"""
                     QWidget {{
-                        background: {COLOR_BG_DARK};
+                        background: {bg_color};
                     }}
                     QWidget:hover {{
                         background: {COLOR_SELECTED};
@@ -1021,34 +1087,97 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 layout.setContentsMargins(0, 0, 0, 0)  # Remove margins, let menu handle padding
                 layout.setSpacing(6)
                 
-                # Add padding via label margins to match menu item padding (16px left, 8px top/bottom)
-                main_label = QtWidgets.QLabel(f"{display_name}({file_info['ver_str']}) • ")
+                # Main label: Shots_001(v001) • hoặc char_Aya(v001) •
+                main_label = QtWidgets.QLabel(f"{display_name}({ver_str}) • ")
                 main_label.setContentsMargins(16, 8, 0, 8)  # Match QMenu::item padding
-                # Make labels transparent to mouse events so hover works on whole widget
                 main_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
                 if is_cur:
                     font = main_label.font(); font.setBold(True); main_label.setFont(font)
                 
-                note_label = QtWidgets.QLabel(note_text)
-                note_font = note_label.font()
-                note_font.setPointSize(get_note_font_size(note_font.pointSize()))
-                note_label.setFont(note_font)
-                note_label.setStyleSheet(get_note_style())
-                # Make labels transparent to mouse events so hover works on whole widget
-                note_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                # Department label: lighting • (màu xanh)
+                dept_label = None
+                if department_text:
+                    dept_label = QtWidgets.QLabel(f"{department_text} • ")
+                    dept_font = dept_label.font()
+                    dept_font.setPointSize(get_department_font_size(dept_font.pointSize()))
+                    dept_label.setFont(dept_font)
+                    dept_label.setStyleSheet(get_department_style())
+                    dept_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                
+                # Note label: fixlight (màu xám)
+                note_label = None
+                if note_text:
+                    note_label = QtWidgets.QLabel(note_text)
+                    note_font = note_label.font()
+                    note_font.setPointSize(get_note_font_size(note_font.pointSize()))
+                    note_label.setFont(note_font)
+                    note_label.setStyleSheet(get_note_style())
+                    note_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
                 
                 layout.addWidget(main_label)
-                layout.addWidget(note_label)
+                if dept_label:
+                    layout.addWidget(dept_label)
+                if note_label:
+                    layout.addWidget(note_label)
                 layout.addStretch()
                 
                 widget_action.setDefaultWidget(widget)
                 widget_action.setData(idx)
                 menu.addAction(widget_action)
-            elif file_info['ver_str']:
-                display_text = f"{display_name}({file_info['ver_str']})"
-                action = menu.addAction(display_text); action.setData(idx)
-                if is_cur:
-                    font = action.font(); font.setBold(True); action.setFont(font)
+            elif ver_str:
+                # Có version nhưng không có department hoặc description
+                # Hiển thị đơn giản: Shots_001(v001) hoặc chỉ với department
+                if department_text:
+                    # Cần custom widget để có department màu xanh
+                    widget_action = QtWidgets.QWidgetAction(menu)
+                    widget = QtWidgets.QWidget()
+                    widget.setMouseTracking(True)
+                    widget.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, False)
+                    widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+                    bg_color = COLOR_CURRENT_FILE if is_cur else COLOR_BG_DARK
+                    widget.setStyleSheet(f"""
+                        QWidget {{
+                            background: {bg_color};
+                        }}
+                        QWidget:hover {{
+                            background: {COLOR_SELECTED};
+                        }}
+                        QLabel {{
+                            background: transparent;
+                        }}
+                    """)
+                    layout = QtWidgets.QHBoxLayout(widget)
+                    layout.setContentsMargins(0, 0, 0, 0)
+                    layout.setSpacing(6)
+                    
+                    main_label = QtWidgets.QLabel(f"{display_name}({ver_str}) • ")
+                    main_label.setContentsMargins(16, 8, 0, 8)
+                    main_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                    if is_cur:
+                        font = main_label.font(); font.setBold(True); main_label.setFont(font)
+                    
+                    dept_label = QtWidgets.QLabel(department_text)
+                    dept_font = dept_label.font()
+                    dept_font.setPointSize(get_department_font_size(dept_font.pointSize()))
+                    dept_label.setFont(dept_font)
+                    dept_label.setStyleSheet(get_department_style())
+                    dept_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                    
+                    layout.addWidget(main_label)
+                    layout.addWidget(dept_label)
+                    layout.addStretch()
+                    
+                    widget_action.setDefaultWidget(widget)
+                    widget_action.setData(idx)
+                    menu.addAction(widget_action)
+                else:
+                    # Không có department, dùng QAction đơn giản
+                    display_text = f"{display_name}({ver_str})"
+                    action = menu.addAction(display_text); action.setData(idx)
+                    if is_cur:
+                        font = action.font(); font.setBold(True); action.setFont(font)
+                        action.setProperty("current", True)
+                        action.setStyleSheet(f"background: {COLOR_CURRENT_FILE};")
             elif note_text:
                 # Use custom widget to style note separately
                 widget_action = QtWidgets.QWidgetAction(menu)
@@ -1060,9 +1189,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
                 # Set style to match menu item hover - widget will show background on hover
                 # Important: Labels inside should not block hover events
+                # Use current file background if this is the current file
+                bg_color = COLOR_CURRENT_FILE if is_cur else COLOR_BG_DARK
                 widget.setStyleSheet(f"""
                     QWidget {{
-                        background: {COLOR_BG_DARK};
+                        background: {bg_color};
                     }}
                     QWidget:hover {{
                         background: {COLOR_SELECTED};
@@ -1106,6 +1237,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 action = menu.addAction(display_text); action.setData(idx)
                 if is_cur:
                     font = action.font(); font.setBold(True); action.setFont(font)
+                    # Set background color for current file
+                    action.setProperty("current", True)
+                    action.setStyleSheet(f"background: {COLOR_CURRENT_FILE};")
         pos = self.shot_display.mapToGlobal(self.shot_display.rect().bottomLeft())
         selected_action = menu.exec_(pos)
         if selected_action:
@@ -2456,7 +2590,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             from mono_tools import __version__
             version = __version__
         except:
-            version = "2.4.0"
+            version = "2.5.0"
         
         about_text = f"""
 MonoStudio - Houdini Pipeline Tools

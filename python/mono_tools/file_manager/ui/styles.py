@@ -11,6 +11,7 @@ COLOR_INPUT_BG = "#1e1e1e"
 COLOR_ACCENT = "#0078d4"
 COLOR_ACCENT_HOVER = "#106ebe"
 COLOR_SELECTED = "#3d5a99"
+COLOR_CURRENT_FILE = "#282f44"  # Lighter than dropdown bg to highlight, but still subtle
 COLOR_TEXT = "#e5e5e5"
 COLOR_TEXT_DIM = "#888"
 COLOR_BORDER = "#3a3a3a"
@@ -24,6 +25,11 @@ COLOR_TAB_SELECTED = "#3a3a3a"
 NOTE_FONT_SIZE_RATIO = 0.85  # 85% of base font size
 NOTE_COLOR = "#888"  # Dimmed text color
 NOTE_FONT_WEIGHT = "normal"  # Never bold
+
+# Department styling constants
+DEPARTMENT_FONT_SIZE_RATIO = 0.9  # 90% of base font size
+DEPARTMENT_COLOR = "#4a9eff"  # Light blue for department text
+DEPARTMENT_FONT_WEIGHT = "normal"
 
 
 def get_menu_style(include_separator=False):
@@ -50,6 +56,9 @@ def get_menu_style(include_separator=False):
         }}
         QMenu::item:hover {{
             background: {COLOR_SELECTED};
+        }}
+        QMenu::item[current="true"] {{
+            background: {COLOR_CURRENT_FILE};
         }}
     """
     
@@ -175,4 +184,28 @@ def get_note_font_size(base_font_size):
         int: Note font point size (rounded)
     """
     return int(base_font_size * NOTE_FONT_SIZE_RATIO)
+
+
+def get_department_style():
+    """
+    Get CSS style string for department labels
+    Used in QLabel.setStyleSheet() for department text
+    
+    Returns:
+        str: CSS style for department labels
+    """
+    return f"color: {DEPARTMENT_COLOR}; font-weight: {DEPARTMENT_FONT_WEIGHT};"
+
+
+def get_department_font_size(base_font_size):
+    """
+    Calculate department font size from base font size
+    
+    Args:
+        base_font_size: Base font point size
+        
+    Returns:
+        int: Department font point size (rounded)
+    """
+    return int(base_font_size * DEPARTMENT_FONT_SIZE_RATIO)
 

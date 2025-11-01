@@ -1,6 +1,6 @@
 # MonoStudio Documentation Index
 
-**Complete documentation reference for MonoStudio v2.4.0**  
+**Complete documentation reference for MonoStudio v2.5.0**  
 **Last Updated**: 2025-01-XX
 
 ---
