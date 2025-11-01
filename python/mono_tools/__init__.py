@@ -3,7 +3,7 @@ Mono Studio Tools Package
 Professional Houdini production tools suite
 """
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 __author__ = "DTA Studio"
 
 # Re-export Qt shim for convenient access (PySide6 preferred, PySide2 fallback)

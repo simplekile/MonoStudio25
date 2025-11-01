@@ -135,14 +135,31 @@ def increment_version_and_backup(current_filepath, note=""):
         current_ver_num = int(ver_match.group(1))
         new_ver_num = current_ver_num + 1
         ver_pattern = ver_match.group(0)
-        ver_str = f"v{ver_match.group(1)}"
+        ver_start_pos = ver_match.start()
+        ver_end_pos = ver_match.end()
+        
+        # Extract base name (everything before version)
+        base_name = name[:ver_start_pos].rstrip('_-.')
+        
+        # Remove any description/note after version (everything after ver_end_pos)
+        # This ensures old notes don't carry over to new version
+        
+        # Build new filename: base_name + new_version + (optional new note)
         new_ver_str = f"v{new_ver_num:03d}"
-        new_ver_pattern = ver_pattern.replace(ver_str, new_ver_str)
-        new_filename = name.replace(ver_pattern, new_ver_pattern)
+        new_filename = base_name
+        
+        # Add separator before version if base_name doesn't end with separator
+        if new_filename and not new_filename[-1] in '_-.':
+            new_filename += '_'
+        
+        new_filename += new_ver_str
+        
+        # Add new note if provided
         if note and note.strip():
             clean_note = re.sub(r'[^\w\s-]', '', note.strip())
             clean_note = re.sub(r'[\s]+', '_', clean_note)
-            if clean_note: new_filename = f"{new_filename}_{clean_note}"
+            if clean_note:
+                new_filename = f"{new_filename}_{clean_note}"
         new_filename = new_filename + ext
         new_filepath = os.path.join(dir_path, new_filename)
         vers_folder = os.path.join(dir_path, "Vers")
@@ -935,8 +952,10 @@ def is_user_workspace(folder_name):
     
     Rules:
     - Lowercase alphanumeric + underscore
+    - MUST start with lowercase letter (not underscore, not number)
     - NOT matching subdepartment pattern (\d{2}_)
     - NOT reserved system folders
+    - NOT starting with underscore (system folders)
     
     Returns:
         bool: True if it's a user workspace folder
@@ -945,12 +964,17 @@ def is_user_workspace(folder_name):
     if folder_name in RESERVED_SYSTEM_FOLDERS:
         return False
     
+    # Folders starting with underscore are system/reserved folders
+    if folder_name.startswith('_'):
+        return False
+    
     # Subdepartment pattern (numeric prefix)
     if re.match(r'^\d{2}_', folder_name):
         return False
     
-    # User workspace pattern
-    if USER_WORKSPACE_PATTERN.match(folder_name):
+    # User workspace pattern - must start with lowercase letter
+    # Pattern: ^[a-z][a-z0-9_]*$ (starts with letter, then alphanumeric + underscore)
+    if re.match(r'^[a-z][a-z0-9_]*$', folder_name):
         return True
     
     return False
@@ -1241,19 +1265,36 @@ def collect_files_with_filters(base_dir, type_name, department=None, subdept=Non
                                 scan_path = os.path.join(dept_entry.path, subdept)
                                 if not os.path.isdir(scan_path):
                                     continue
+                                
+                                # Apply username filter if specified
+                                if username:
+                                    # Only scan specific user workspace in this subdept
+                                    user_path = os.path.join(scan_path, username)
+                                    if os.path.isdir(user_path):
+                                        scan_directory_recursive(user_path, asset_name, dept_name, max_depth=1)
+                                else:
+                                    # Scan all (users and direct files) in this subdept
+                                    scan_directory_recursive(scan_path, asset_name, dept_name, max_depth=2)
                             else:
-                                # Scan entire department (including subdepts and user workspaces)
-                                scan_path = dept_entry.path
-                            
-                            # Apply username filter if specified
-                            if username:
-                                # Only scan specific user workspace
-                                user_path = os.path.join(scan_path, username)
-                                if os.path.isdir(user_path):
-                                    scan_directory_recursive(user_path, asset_name, dept_name, max_depth=1)
-                            else:
-                                # Scan all (subdepts, users, and direct files)
-                                scan_directory_recursive(scan_path, asset_name, dept_name, max_depth=2)
+                                # No subdept filter - scan entire department
+                                if username:
+                                    # When subdept=None and username specified, scan user workspace in ALL subdepts
+                                    # First, try direct user workspace in department root
+                                    user_path = os.path.join(dept_entry.path, username)
+                                    if os.path.isdir(user_path):
+                                        scan_directory_recursive(user_path, asset_name, dept_name, max_depth=1)
+                                    
+                                    # Then scan user workspace in each subdept
+                                    for subdept_entry in os.scandir(dept_entry.path):
+                                        if (subdept_entry.is_dir() and 
+                                            not subdept_entry.name.startswith('.') and 
+                                            subdept_entry.name not in IGNORE_FOLDERS):
+                                            user_path = os.path.join(subdept_entry.path, username)
+                                            if os.path.isdir(user_path):
+                                                scan_directory_recursive(user_path, asset_name, dept_name, max_depth=1)
+                                else:
+                                    # Scan all (subdepts, users, and direct files) in department
+                                    scan_directory_recursive(dept_entry.path, asset_name, dept_name, max_depth=2)
         else:
             # Shots: scan department/[subdept/][user/]files
             shots_dir = os.path.join(base_dir, "02_shots")
@@ -1271,28 +1312,45 @@ def collect_files_with_filters(base_dir, type_name, department=None, subdept=Non
                     if department and dept_name != department:
                         continue
                     
+                    # For shots, shot name will be extracted from filename in scan function
+                    shot_name = ""  # Placeholder, will be extracted from filename
+                    
                     # Determine scan path based on subdept filter
                     if subdept:
                         # Only scan specific subdepartment
                         scan_path = os.path.join(dept_entry.path, subdept)
                         if not os.path.isdir(scan_path):
                             continue
+                        
+                        # Apply username filter if specified
+                        if username:
+                            # Only scan specific user workspace in this subdept
+                            user_path = os.path.join(scan_path, username)
+                            if os.path.isdir(user_path):
+                                scan_directory_recursive(user_path, shot_name, dept_name, max_depth=1, is_shots=True)
+                        else:
+                            # Scan all (users and direct files) in this subdept
+                            scan_directory_recursive(scan_path, shot_name, dept_name, max_depth=2, is_shots=True)
                     else:
-                        # Scan entire department (including subdepts and user workspaces)
-                        scan_path = dept_entry.path
-                    
-                    # For shots, shot name will be extracted from filename in scan function
-                    shot_name = ""  # Placeholder, will be extracted from filename
-                    
-                    # Apply username filter if specified
-                    if username:
-                        # Only scan specific user workspace
-                        user_path = os.path.join(scan_path, username)
-                        if os.path.isdir(user_path):
-                            scan_directory_recursive(user_path, shot_name, dept_name, max_depth=1, is_shots=True)
-                    else:
-                        # Scan all (subdepts, users, and direct files)
-                        scan_directory_recursive(scan_path, shot_name, dept_name, max_depth=2, is_shots=True)
+                        # No subdept filter - scan entire department
+                        if username:
+                            # When subdept=None and username specified, scan user workspace in ALL subdepts
+                            # First, try direct user workspace in department root
+                            user_path = os.path.join(dept_entry.path, username)
+                            if os.path.isdir(user_path):
+                                scan_directory_recursive(user_path, shot_name, dept_name, max_depth=1, is_shots=True)
+                            
+                            # Then scan user workspace in each subdept
+                            for subdept_entry in os.scandir(dept_entry.path):
+                                if (subdept_entry.is_dir() and 
+                                    not subdept_entry.name.startswith('.') and 
+                                    subdept_entry.name not in IGNORE_FOLDERS):
+                                    user_path = os.path.join(subdept_entry.path, username)
+                                    if os.path.isdir(user_path):
+                                        scan_directory_recursive(user_path, shot_name, dept_name, max_depth=1, is_shots=True)
+                        else:
+                            # Scan all (subdepts, users, and direct files) in department
+                            scan_directory_recursive(dept_entry.path, shot_name, dept_name, max_depth=2, is_shots=True)
                             
     except Exception as e:
         if DEBUG: print(f"⚠️ Error collecting files with filters: {e}")

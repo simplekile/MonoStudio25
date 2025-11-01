@@ -149,106 +149,110 @@ class NewFolderDialog(QtWidgets.QDialog):
     
     def _apply_style(self):
         """Apply consistent styling"""
-        self.setStyleSheet("""
-            QDialog {
-                background: #2b2b2b;
-            }
-            QLabel {
-                color: #e5e5e5;
-            }
-            QGroupBox {
-                color: #e5e5e5;
-                border: 1px solid #3a3a3a;
+        from .styles import (
+            COLOR_BG, COLOR_BG_DARK, COLOR_INPUT_BG, COLOR_TEXT, COLOR_TEXT_DIM,
+            COLOR_BORDER, COLOR_SELECTED, COLOR_BUTTON, COLOR_BUTTON_HOVER
+        )
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {COLOR_BG_DARK};
+            }}
+            QLabel {{
+                color: {COLOR_TEXT};
+            }}
+            QGroupBox {{
+                color: {COLOR_TEXT};
+                border: 1px solid {COLOR_BORDER};
                 border-radius: 6px;
                 margin-top: 12px;
                 padding-top: 12px;
                 font-weight: bold;
-            }
-            QGroupBox::title {
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 12px;
                 padding: 0 8px;
-            }
-            QRadioButton {
-                color: #e5e5e5;
+            }}
+            QRadioButton {{
+                color: {COLOR_TEXT};
                 spacing: 8px;
-            }
-            QRadioButton::indicator {
+            }}
+            QRadioButton::indicator {{
                 width: 18px;
                 height: 18px;
                 border-radius: 9px;
                 border: 2px solid #4a4a4a;
-                background: #1e1e1e;
-            }
-            QRadioButton::indicator:checked {
-                border: 2px solid #3d5a99;
-                background: #3d5a99;
-            }
-            QRadioButton::indicator:checked::after {
+                background: {COLOR_INPUT_BG};
+            }}
+            QRadioButton::indicator:checked {{
+                border: 2px solid {COLOR_SELECTED};
+                background: {COLOR_SELECTED};
+            }}
+            QRadioButton::indicator:checked::after {{
                 content: '';
                 width: 8px;
                 height: 8px;
                 border-radius: 4px;
                 background: white;
-            }
-            QComboBox {
-                background: #1e1e1e;
-                color: #e5e5e5;
-                border: 1px solid #3a3a3a;
+            }}
+            QComboBox {{
+                background: {COLOR_INPUT_BG};
+                color: {COLOR_TEXT};
+                border: 1px solid {COLOR_BORDER};
                 border-radius: 4px;
                 padding: 6px;
                 min-height: 24px;
-            }
-            QComboBox:hover {
+            }}
+            QComboBox:hover {{
                 border: 1px solid #4a4a4a;
-            }
-            QComboBox:focus {
-                border: 1px solid #3d5a99;
-            }
-            QComboBox::drop-down {
+            }}
+            QComboBox:focus {{
+                border: 1px solid {COLOR_SELECTED};
+            }}
+            QComboBox::drop-down {{
                 border: none;
                 width: 20px;
-            }
-            QComboBox::down-arrow {
+            }}
+            QComboBox::down-arrow {{
                 image: none;
                 border-left: 4px solid transparent;
                 border-right: 4px solid transparent;
-                border-top: 6px solid #999;
+                border-top: 6px solid {COLOR_TEXT_DIM};
                 margin-right: 6px;
-            }
-            QLineEdit {
-                background: #1e1e1e;
-                color: #e5e5e5;
-                border: 1px solid #3a3a3a;
+            }}
+            QLineEdit {{
+                background: {COLOR_INPUT_BG};
+                color: {COLOR_TEXT};
+                border: 1px solid {COLOR_BORDER};
                 border-radius: 4px;
                 padding: 6px;
                 min-height: 24px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #3d5a99;
-            }
-            QPushButton {
-                background: #3a3a3a;
-                color: #e5e5e5;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {COLOR_SELECTED};
+            }}
+            QPushButton {{
+                background: {COLOR_BUTTON};
+                color: {COLOR_TEXT};
                 border: 1px solid #4a4a4a;
                 border-radius: 4px;
                 padding: 8px 16px;
                 font-weight: bold;
                 min-height: 32px;
-            }
-            QPushButton:hover {
-                background: #4a4a4a;
-            }
-            QPushButton:pressed {
-                background: #2a2a2a;
-            }
-            QPushButton:default {
-                background: #3d5a99;
+            }}
+            QPushButton:hover {{
+                background: {COLOR_BUTTON_HOVER};
+            }}
+            QPushButton:pressed {{
+                background: {COLOR_BG};
+            }}
+            QPushButton:default {{
+                background: {COLOR_SELECTED};
                 border: 1px solid #4d6a99;
-            }
-            QPushButton:default:hover {
+            }}
+            QPushButton:default:hover {{
                 background: #4d6a99;
-            }
+            }}
         """)
     
     def _populate_types(self):

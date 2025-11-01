@@ -5,6 +5,10 @@ Compatible with Houdini 21+ (PySide6)
 
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import os
+from .styles import (
+    COLOR_BG, COLOR_BG_DARK, COLOR_INPUT_BG, COLOR_TEXT, COLOR_TEXT_DIM,
+    COLOR_BORDER, COLOR_SELECTED, COLOR_BUTTON, COLOR_BUTTON_HOVER
+)
 
 
 class NewFileDialog(QtWidgets.QDialog):
@@ -39,7 +43,7 @@ class NewFileDialog(QtWidgets.QDialog):
         
         # Title
         title_label = QtWidgets.QLabel("Create New File")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #e5e5e5;")
+        title_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLOR_TEXT};")
         layout.addWidget(title_label)
         
         # Form layout
@@ -69,7 +73,7 @@ class NewFileDialog(QtWidgets.QDialog):
         self.user_edit.setMinimumWidth(300)
         self.user_edit.setPlaceholderText("e.g., john, mary")
         user_hint = QtWidgets.QLabel("(lowercase, auto-detected)")
-        user_hint.setStyleSheet("font-size: 10px; color: #666;")
+        user_hint.setStyleSheet(f"font-size: 10px; color: {COLOR_TEXT_DIM};")
         user_layout = QtWidgets.QVBoxLayout()
         user_layout.setSpacing(4)
         user_layout.addWidget(self.user_edit)
@@ -92,7 +96,7 @@ class NewFileDialog(QtWidgets.QDialog):
         # Preview path
         layout.addSpacing(8)
         preview_label = QtWidgets.QLabel("File will be created at:")
-        preview_label.setStyleSheet("font-size: 11px; color: #999;")
+        preview_label.setStyleSheet(f"font-size: 11px; color: {COLOR_TEXT_DIM};")
         layout.addWidget(preview_label)
         
         self.path_preview = QtWidgets.QLabel()
@@ -137,71 +141,71 @@ class NewFileDialog(QtWidgets.QDialog):
     
     def _apply_style(self):
         """Apply consistent styling"""
-        self.setStyleSheet("""
-            QDialog {
-                background: #2b2b2b;
-            }
-            QLabel {
-                color: #e5e5e5;
-            }
-            QComboBox {
-                background: #1e1e1e;
-                color: #e5e5e5;
-                border: 1px solid #3a3a3a;
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {COLOR_BG_DARK};
+            }}
+            QLabel {{
+                color: {COLOR_TEXT};
+            }}
+            QComboBox {{
+                background: {COLOR_INPUT_BG};
+                color: {COLOR_TEXT};
+                border: 1px solid {COLOR_BORDER};
                 border-radius: 4px;
                 padding: 6px;
                 min-height: 24px;
-            }
-            QComboBox:hover {
+            }}
+            QComboBox:hover {{
                 border: 1px solid #4a4a4a;
-            }
-            QComboBox:focus {
-                border: 1px solid #3d5a99;
-            }
-            QComboBox::drop-down {
+            }}
+            QComboBox:focus {{
+                border: 1px solid {COLOR_SELECTED};
+            }}
+            QComboBox::drop-down {{
                 border: none;
                 width: 20px;
-            }
-            QComboBox::down-arrow {
+            }}
+            QComboBox::down-arrow {{
                 image: none;
                 border-left: 4px solid transparent;
                 border-right: 4px solid transparent;
-                border-top: 6px solid #999;
+                border-top: 6px solid {COLOR_TEXT_DIM};
                 margin-right: 6px;
-            }
-            QLineEdit {
-                background: #1e1e1e;
-                color: #e5e5e5;
-                border: 1px solid #3a3a3a;
+            }}
+            QLineEdit {{
+                background: {COLOR_INPUT_BG};
+                color: {COLOR_TEXT};
+                border: 1px solid {COLOR_BORDER};
                 border-radius: 4px;
                 padding: 6px;
                 min-height: 24px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #3d5a99;
-            }
-            QPushButton {
-                background: #3a3a3a;
-                color: #e5e5e5;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {COLOR_SELECTED};
+            }}
+            QPushButton {{
+                background: {COLOR_BUTTON};
+                color: {COLOR_TEXT};
                 border: 1px solid #4a4a4a;
                 border-radius: 4px;
                 padding: 8px 16px;
                 font-weight: bold;
                 min-height: 32px;
-            }
-            QPushButton:hover {
-                background: #4a4a4a;
-            }
-            QPushButton:pressed {
-                background: #2a2a2a;
-            }
-            QPushButton:default {
-                background: #3d5a99;
+            }}
+            QPushButton:hover {{
+                background: {COLOR_BUTTON_HOVER};
+            }}
+            QPushButton:pressed {{
+                background: {COLOR_BG};
+            }}
+            QPushButton:default {{
+                background: {COLOR_SELECTED};
                 border: 1px solid #4d6a99;
-            }
-            QPushButton:default:hover {
+            }}
+            QPushButton:default:hover {{
                 background: #4d6a99;
-            }
+            }}
         """)
     
     def _populate_fields(self):

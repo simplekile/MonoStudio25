@@ -488,7 +488,7 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
             title_layout.addWidget(self.version_label)
         except Exception as e:
             print(f"⚠️ Error loading version: {e}")
-            self.version_label = QtWidgets.QLabel("v2.3.0")
+            self.version_label = QtWidgets.QLabel("v2.4.0")
             self.version_label.setStyleSheet("QLabel { color: #888; font-size: 12px; }")
             title_layout.addWidget(self.version_label)
         
@@ -1211,54 +1211,8 @@ class MonoFileManagerSettings(QtWidgets.QDialog):
     
     def _apply_styling(self):
         """Apply styling to dialog"""
-        self.setStyleSheet("""
-            QDialog { background: #232323; color: #e5e5e5; }
-            QGroupBox { 
-                font-weight: bold; 
-                border: 2px solid #3a3a3a; 
-                border-radius: 8px; 
-                margin-top: 10px; 
-                padding-top: 10px; 
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
-            QLineEdit, QComboBox { 
-                background: #2c2c2c; 
-                color: #e5e5e5; 
-                border: 1px solid #3a3a3a; 
-                border-radius: 6px; 
-                padding: 4px 6px; 
-            }
-            QPushButton { 
-                background: #3a3a3a; 
-                color: #fff; 
-                border: 1px solid #4a4a4a; 
-                border-radius: 8px; 
-                padding: 6px 10px; 
-                min-width: 80px;
-            }
-            QPushButton:hover { background: #4a4a4a; }
-            QTabWidget::pane { border: 1px solid #3a3a3a; background: #1e1e1e; }
-            QTabBar::tab { 
-                background: #2a2a2a; 
-                color: #e5e5e5; 
-                padding: 8px 16px; 
-                margin-right: 2px; 
-            }
-            QTabBar::tab:selected { background: #3a3a3a; }
-            QTableView { 
-                background: #1e1e1e; 
-                alternate-background-color: #242424; 
-                gridline-color: #3a3a3a; 
-                selection-background-color: #3d5a99; 
-                selection-color: #fff; 
-            }
-            QHeaderView::section { 
-                background: #2a2a2a; 
-                color: #dcdcdc; 
-                border: 0; 
-                padding: 6px; 
-            }
-        """)
+        from .ui.styles import get_dialog_style
+        self.setStyleSheet(get_dialog_style())
     
     def _browse_root(self):
         """Browse for project root directory"""

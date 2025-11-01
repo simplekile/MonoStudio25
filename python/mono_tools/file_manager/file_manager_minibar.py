@@ -1,7 +1,9 @@
 import os
+import re
 import subprocess
 from mono_tools.qt import QtCore, QtGui, QtWidgets
 import hou
+from .ui.styles import get_menu_style, get_note_style, get_note_font_size, COLOR_SELECTED, COLOR_BG_DARK
 from .file_manager_helpers import (
     ORG, APP, collect_files, get_current_houdini_file, is_current_file, 
     infer_shot, parse_ver, open_in_explorer, get_render_folder_path, 
@@ -68,6 +70,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.type_btn.setToolTip("Select type (auto-scanned from project)")
         self.type_btn.clicked.connect(self._show_type_menu)
         self.current_type = None
+        self.current_type_path = None  # Store actual folder path (e.g., "02_shots" or "_characters")
         self.current_type_is_assets = True
 
         # Department menu button (departments for selected type)
@@ -199,11 +202,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     def _show_handle_context_menu(self, pos):
         """Show context menu for handle"""
         menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-        """)
+        menu.setStyleSheet(get_menu_style())
         
         # Lock/Unlock toggle
         if self._locked:
@@ -237,7 +236,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             version_action.setEnabled(False)  # Disabled, just for display
         except Exception as e:
             debug_print(f"⚠️ Error loading version: {e}")
-            version_action = menu.addAction("ℹ️ v2.3.0")
+            version_action = menu.addAction("ℹ️ v2.4.0")
             version_action.setEnabled(False)
         
         # Show menu
@@ -286,12 +285,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
 
     def _show_type_menu(self):
         """Show type selection menu"""
+        # Refresh files when opening dropdown to ensure latest files are shown
+        self._refresh_files_for_current_tab()
+        
         menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-        """)
+        menu.setStyleSheet(get_menu_style())
         
         # Get available types from settings
         root = self.s.value("project_root", "", type=str)
@@ -333,13 +331,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     
     def _show_dept_menu(self):
         """Show hierarchical department menu with subdepartments"""
+        # Refresh files when opening dropdown to ensure latest files are shown
+        self._refresh_files_for_current_tab()
+        
         menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-            QMenu::separator { height: 1px; background: #3a3a3a; }
-        """)
+        menu.setStyleSheet(get_menu_style(include_separator=True))
         
         if not self.current_type:
             menu.addAction("Select type first").setEnabled(False)
@@ -373,9 +369,80 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                         dept_icon = dept_config.get('icon', '📁')
                         
                         # Check if department has subdepartments in config
-                        subdepts = get_subdepartments_for_department(dept)
+                        subdepts_from_config = get_subdepartments_for_department(dept)
                         
-                        if subdepts:
+                        # Scan actual folders in department to find subdepartments
+                        # Use type_path (folder name) instead of display name
+                        type_folder = self.current_type_path if self.current_type_path else self.current_type
+                        dept_folder_path = os.path.join(project_path, type_folder, dept)
+                        actual_subdepts = {}
+                        
+                        debug_print(f"🔍 Scanning subdepartments for dept '{dept}'")
+                        debug_print(f"   Project path: {project_path}")
+                        debug_print(f"   Type (display): {self.current_type}")
+                        debug_print(f"   Type path (folder): {type_folder}")
+                        debug_print(f"   Dept folder path: {dept_folder_path}")
+                        debug_print(f"   Folder exists: {os.path.isdir(dept_folder_path)}")
+                        
+                        if os.path.isdir(dept_folder_path):
+                            from .file_manager_helpers import SUBDEPT_PATTERN, RESERVED_SYSTEM_FOLDERS
+                            try:
+                                all_entries = list(os.scandir(dept_folder_path))
+                                debug_print(f"   Found {len(all_entries)} entries in folder")
+                                
+                                for entry in all_entries:
+                                    debug_print(f"   Checking: {entry.name} (is_dir: {entry.is_dir()})")
+                                    
+                                    if entry.is_dir():
+                                        # Check pattern match
+                                        pattern_match = SUBDEPT_PATTERN.match(entry.name)
+                                        is_reserved = entry.name in RESERVED_SYSTEM_FOLDERS
+                                        is_hidden = entry.name.startswith('.')
+                                        
+                                        debug_print(f"      Pattern match: {pattern_match}")
+                                        debug_print(f"      Is reserved: {is_reserved}")
+                                        debug_print(f"      Is hidden: {is_hidden}")
+                                        
+                                        if (not is_hidden and 
+                                            not is_reserved and
+                                            pattern_match):
+                                            # Found actual subdepartment folder
+                                            actual_subdepts[entry.name] = {
+                                                'id': entry.name,
+                                                'name': entry.name.split('_')[-1].capitalize(),  # Default name from folder
+                                                'from_config': False
+                                            }
+                                            debug_print(f"      ✅ Added subdepartment: {entry.name}")
+                            except Exception as e:
+                                debug_print(f"⚠️ Error scanning department folder: {e}")
+                                import traceback
+                                debug_print(traceback.format_exc())
+                        
+                        debug_print(f"   Found {len(actual_subdepts)} actual subdepartments: {list(actual_subdepts.keys())}")
+                        
+                        # Merge config subdepartments with actual folders
+                        # Config subdepartments override actual folders (have priority for name)
+                        merged_subdepts = {}
+                        
+                        debug_print(f"   Config subdepartments: {[s['id'] for s in subdepts_from_config]}")
+                        
+                        # First, add actual folders found
+                        for subdept_id, subdept_info in actual_subdepts.items():
+                            merged_subdepts[subdept_id] = subdept_info
+                        
+                        # Then, add/update from config (config has priority for name)
+                        for subdept in subdepts_from_config:
+                            subdept_id = subdept['id']
+                            merged_subdepts[subdept_id] = {
+                                'id': subdept_id,
+                                'name': subdept.get('name', subdept_id.split('_')[-1].capitalize()),
+                                'from_config': True
+                            }
+                        
+                        debug_print(f"   Merged subdepartments: {list(merged_subdepts.keys())}")
+                        
+                        # If we have any subdepartments (from config or actual folders), create submenu
+                        if merged_subdepts:
                             # Create submenu for departments with subdepartments
                             dept_submenu = menu.addMenu(f"{dept_icon} {dept}")
                             dept_submenu.setStyleSheet(menu.styleSheet())
@@ -396,10 +463,17 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                             
                             dept_submenu.addSeparator()
                             
-                            # Add subdepartments
-                            for subdept in subdepts:
-                                subdept_id = subdept['id']
-                                subdept_name = subdept.get('name', subdept_id)
+                            # Add subdepartments - sorted by ID (number prefix)
+                            sorted_subdept_ids = sorted(merged_subdepts.keys(), 
+                                                       key=lambda x: (int(x.split('_')[0]) if x.split('_')[0].isdigit() else 999, x))
+                            
+                            for subdept_id in sorted_subdept_ids:
+                                subdept_info = merged_subdepts[subdept_id]
+                                subdept_name = subdept_info['name']
+                                
+                                # Check if subdepartment folder actually exists
+                                subdept_folder_path = os.path.join(dept_folder_path, subdept_id)
+                                subdept_folder_exists = os.path.isdir(subdept_folder_path)
                                 
                                 # Count files in this specific subdepartment
                                 subdept_files = collect_files_with_filters(
@@ -407,14 +481,17 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                                 )
                                 subdept_count = len(subdept_files)
                                 
-                                subdept_action = dept_submenu.addAction(f"  └─ {subdept_name} ({subdept_count})")
-                                subdept_action.setData((dept, subdept_id))
-                                
-                                # Bold if currently selected
-                                if dept == self.current_dept and subdept_id == self.current_subdept:
-                                    font = subdept_action.font()
-                                    font.setBold(True)
-                                    subdept_action.setFont(font)
+                                # Only show subdepartment if folder exists OR has files
+                                # This prevents showing empty/non-existent subdepartments
+                                if subdept_folder_exists or subdept_count > 0:
+                                    subdept_action = dept_submenu.addAction(f"  └─ {subdept_name} ({subdept_count})")
+                                    subdept_action.setData((dept, subdept_id))
+                                    
+                                    # Bold if currently selected
+                                    if dept == self.current_dept and subdept_id == self.current_subdept:
+                                        font = subdept_action.font()
+                                        font.setBold(True)
+                                        subdept_action.setFont(font)
                         else:
                             # No subdepartments - add as regular action
                             files = collect_files_with_filters(project_path, self.current_type, dept)
@@ -445,6 +522,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     def _select_type(self, type_name, type_path, is_assets):
         """Handle type selection"""
         self.current_type = type_name
+        # Store the actual folder name (last part of type_path)
+        self.current_type_path = os.path.basename(type_path)
         self.current_type_is_assets = is_assets
         
         # Update button text (shorten if needed)
@@ -501,13 +580,11 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     
     def _show_user_filter_menu(self):
         """Show user filter menu"""
+        # Refresh files when opening dropdown to ensure latest files are shown
+        self._refresh_files_for_current_tab()
+        
         menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-            QMenu::separator { height: 1px; background: #3a3a3a; }
-        """)
+        menu.setStyleSheet(get_menu_style(include_separator=True))
         
         if not self.current_dept:
             menu.addAction("Select department first").setEnabled(False)
@@ -534,13 +611,27 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 )
                 
                 # Extract unique users from file paths
+                # Only scan relative path from project_path to avoid detecting project name as user folder
                 users_with_counts = {}
+                project_path_norm = os.path.normpath(project_path)
                 
                 for filepath, asset_name, dept_name, file_info in all_files:
-                    # Try to extract username from path
-                    path_parts = filepath.split(os.sep)
+                    # Extract username from path using relative path
+                    try:
+                        filepath_norm = os.path.normpath(filepath)
+                        if filepath_norm.startswith(project_path_norm):
+                            # Get relative path from project
+                            rel_path = os.path.relpath(filepath_norm, project_path_norm)
+                            path_parts = rel_path.split(os.sep)
+                        else:
+                            # Fallback to full path if not under project
+                            path_parts = filepath_norm.split(os.sep)
+                    except Exception:
+                        # Fallback to full path if error
+                        path_parts = os.path.normpath(filepath).split(os.sep)
                     
                     # Look for user workspace folders (lowercase pattern)
+                    # Scan from end to start (relative to project)
                     from .file_manager_helpers import is_user_workspace
                     for part in reversed(path_parts):
                         if is_user_workspace(part):
@@ -623,11 +714,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     
     def _show_quick_menu(self):
         menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-        """)
+        menu.setStyleSheet(get_menu_style())
         # File operations
         new_action = menu.addAction("📄 New File..."); new_action.triggered.connect(self._new_file)
         new_folder_action = menu.addAction("📁 New Folder..."); new_folder_action.triggered.connect(self._new_folder)
@@ -683,9 +770,38 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         if idx >= 0 and idx < self.combo.count():
             fp = self.combo.itemData(idx, role=QtCore.Qt.UserRole)
             if fp:
-                shot = self.combo.itemData(idx, role=QtCore.Qt.UserRole+2) or infer_shot(fp) or "Unknown"
-                self.shot_display.setText(shot)
-                self.shot_display.setToolTip(f"Current: {shot}\nClick to change")
+                # Prefer full filename (without version + extension) over inferred shot
+                filename = os.path.basename(fp)
+                name_without_ext = os.path.splitext(filename)[0]
+                
+                # First, extract note if it exists after version (everything after version separator)
+                note_match = re.search(r'[._-]v\d+[._-](.+)$', name_without_ext, re.IGNORECASE)
+                note_text = note_match.group(1) if note_match and note_match.group(1) else ""
+                
+                # Remove version pattern and any note after it from filename
+                if note_text:
+                    # Remove version + all note text after it: [sep]v[digits][sep][all note]
+                    display_name = re.sub(r'[._-]v\d+[._-].+$', '', name_without_ext)
+                else:
+                    # No note, just remove version at end
+                    display_name = re.sub(r'[._-]v\d+$', '', name_without_ext)
+                    # If version is in middle (followed by separator but not note), remove it
+                    display_name = re.sub(r'[._-]v\d+[._-](?![A-Za-z0-9])', '_', display_name)
+                
+                # Clean up trailing separators
+                display_name = display_name.rstrip('_-.')
+                ver_str = parse_ver(filename)
+                if not display_name:
+                    display_name = self.combo.itemData(idx, role=QtCore.Qt.UserRole+2) or infer_shot(fp) or "Unknown"
+                # Label shows name (+ note if present). Tooltip shows name + version + note
+                label_text = f"{display_name} • {note_text}" if note_text else display_name
+                tooltip_text = display_name
+                if ver_str:
+                    tooltip_text += f"({ver_str})"
+                if note_text:
+                    tooltip_text += f"\n📝 {note_text}"
+                self.shot_display.setText(label_text)
+                self.shot_display.setToolTip(f"Current: {tooltip_text}\nClick to change")
             else:
                 self.shot_display.setText("No files")
                 self.shot_display.setToolTip("No files available")
@@ -812,6 +928,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     # ---- File menu (dropdown) ----
     def _show_file_menu(self):
         """Show file dropdown menu"""
+        # Refresh files when opening dropdown to ensure latest files are shown
+        self._refresh_files_for_current_tab()
+        
         if self.combo.count() == 0:
             # Show better message based on context
             type_name = self.current_type
@@ -826,11 +945,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             hou.ui.displayMessage(msg, severity=hou.severityType.Warning)
             return
-        menu = QtWidgets.QMenu(); menu.setAttribute(QtCore.Qt.WA_DeleteOnClose); menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-        """)
+        menu = QtWidgets.QMenu(); menu.setAttribute(QtCore.Qt.WA_DeleteOnClose); menu.setStyleSheet(get_menu_style())
         shot_files = {}
         for i in range(self.combo.count()):
             fp = self.combo.itemData(i, role=QtCore.Qt.UserRole)
@@ -840,21 +955,166 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             filename = os.path.basename(fp); ver_str = parse_ver(filename)
             try: ver_num = int(ver_str.replace('v', '')) if ver_str else 0
             except: ver_num = 0
+            
+            # Extract full filename without version and extension for display
+            name_without_ext = os.path.splitext(filename)[0]
+            
+            # First, extract note if it exists after version (everything after version separator)
+            # Pattern: [separator]v[digits][separator][all remaining text]
+            note_match = re.search(r'[._-]v\d+[._-](.+)$', name_without_ext, re.IGNORECASE)
+            note_text = note_match.group(1) if note_match and note_match.group(1) else ""
+            
+            # Remove version pattern and any note after it from filename
+            # Pattern matches: _v05, -v05, _v005, .v05 at end or followed by note
+            if note_text:
+                # Remove version + all note text after it: [sep]v[digits][sep][all note]
+                display_name = re.sub(r'[._-]v\d+[._-].+$', '', name_without_ext)
+            else:
+                # No note, just remove version at end
+                display_name = re.sub(r'[._-]v\d+$', '', name_without_ext)
+                # If version is in middle (followed by separator but not note), remove it
+                display_name = re.sub(r'[._-]v\d+[._-](?![A-Za-z0-9])', '_', display_name)
+            
+            # Clean up trailing separators
+            display_name = display_name.rstrip('_-.')
+            
             if shot not in shot_files or ver_num > shot_files[shot]['version']:
-                shot_files[shot] = {'index': i, 'version': ver_num, 'ver_str': ver_str}
+                shot_files[shot] = {'index': i, 'version': ver_num, 'ver_str': ver_str, 'display_name': display_name}
         current_file = get_current_houdini_file()
         for shot in sorted(shot_files.keys()):
             file_info = shot_files[shot]; idx = file_info['index']
             fp = self.combo.itemData(idx, role=QtCore.Qt.UserRole); is_cur = is_current_file(fp) if current_file else False
-            display_text = f"{shot} ({file_info['ver_str']})" if file_info['ver_str'] else shot
-            if is_cur: display_text = f"🎯 {display_text} (Current)"
-            action = menu.addAction(display_text); action.setData(idx)
-            if is_cur:
-                font = action.font(); font.setBold(True); action.setFont(font)
+            # Use display_name instead of shot for better readability
+            display_name = file_info.get('display_name', shot)
+            filename = os.path.basename(fp)
+            base_no_ext = os.path.splitext(filename)[0]
+            # Extract note using same pattern as above (everything after version separator)
+            note_match = re.search(r'[._-]v\d+[._-](.+)$', base_no_ext, re.IGNORECASE)
+            note_text = note_match.group(1) if note_match and note_match.group(1) else ""
+            # Build display text with note styling (smaller, lighter, not bold)
+            if file_info['ver_str'] and note_text:
+                # Use custom widget to style note separately
+                widget_action = QtWidgets.QWidgetAction(menu)
+                widget = QtWidgets.QWidget()
+                # Enable mouse tracking for hover detection
+                widget.setMouseTracking(True)
+                widget.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, False)
+                # Set widget to fill entire menu item width for proper hover
+                widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+                # Set style to match menu item hover - widget will show background on hover
+                # Important: Labels inside should not block hover events
+                widget.setStyleSheet(f"""
+                    QWidget {{
+                        background: {COLOR_BG_DARK};
+                    }}
+                    QWidget:hover {{
+                        background: {COLOR_SELECTED};
+                    }}
+                    QLabel {{
+                        background: transparent;
+                    }}
+                    QLabel:hover {{
+                        background: transparent;
+                    }}
+                """)
+                layout = QtWidgets.QHBoxLayout(widget)
+                layout.setContentsMargins(0, 0, 0, 0)  # Remove margins, let menu handle padding
+                layout.setSpacing(6)
+                
+                # Add padding via label margins to match menu item padding (16px left, 8px top/bottom)
+                main_label = QtWidgets.QLabel(f"{display_name}({file_info['ver_str']}) • ")
+                main_label.setContentsMargins(16, 8, 0, 8)  # Match QMenu::item padding
+                # Make labels transparent to mouse events so hover works on whole widget
+                main_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                if is_cur:
+                    font = main_label.font(); font.setBold(True); main_label.setFont(font)
+                
+                note_label = QtWidgets.QLabel(note_text)
+                note_font = note_label.font()
+                note_font.setPointSize(get_note_font_size(note_font.pointSize()))
+                note_label.setFont(note_font)
+                note_label.setStyleSheet(get_note_style())
+                # Make labels transparent to mouse events so hover works on whole widget
+                note_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                
+                layout.addWidget(main_label)
+                layout.addWidget(note_label)
+                layout.addStretch()
+                
+                widget_action.setDefaultWidget(widget)
+                widget_action.setData(idx)
+                menu.addAction(widget_action)
+            elif file_info['ver_str']:
+                display_text = f"{display_name}({file_info['ver_str']})"
+                action = menu.addAction(display_text); action.setData(idx)
+                if is_cur:
+                    font = action.font(); font.setBold(True); action.setFont(font)
+            elif note_text:
+                # Use custom widget to style note separately
+                widget_action = QtWidgets.QWidgetAction(menu)
+                widget = QtWidgets.QWidget()
+                # Enable mouse tracking for hover detection
+                widget.setMouseTracking(True)
+                widget.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, False)
+                # Set widget to fill entire menu item width for proper hover
+                widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+                # Set style to match menu item hover - widget will show background on hover
+                # Important: Labels inside should not block hover events
+                widget.setStyleSheet(f"""
+                    QWidget {{
+                        background: {COLOR_BG_DARK};
+                    }}
+                    QWidget:hover {{
+                        background: {COLOR_SELECTED};
+                    }}
+                    QLabel {{
+                        background: transparent;
+                    }}
+                    QLabel:hover {{
+                        background: transparent;
+                    }}
+                """)
+                layout = QtWidgets.QHBoxLayout(widget)
+                layout.setContentsMargins(0, 0, 0, 0)  # Remove margins, let menu handle padding
+                layout.setSpacing(6)
+                
+                # Add padding via label margins to match menu item padding (16px left, 8px top/bottom)
+                main_label = QtWidgets.QLabel(f"{display_name} • ")
+                main_label.setContentsMargins(16, 8, 0, 8)  # Match QMenu::item padding
+                # Make labels transparent to mouse events so hover works on whole widget
+                main_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                if is_cur:
+                    font = main_label.font(); font.setBold(True); main_label.setFont(font)
+                
+                note_label = QtWidgets.QLabel(note_text)
+                note_font = note_label.font()
+                note_font.setPointSize(get_note_font_size(note_font.pointSize()))
+                note_label.setFont(note_font)
+                note_label.setStyleSheet(get_note_style())
+                # Make labels transparent to mouse events so hover works on whole widget
+                note_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+                
+                layout.addWidget(main_label)
+                layout.addWidget(note_label)
+                layout.addStretch()
+                
+                widget_action.setDefaultWidget(widget)
+                widget_action.setData(idx)
+                menu.addAction(widget_action)
+            else:
+                display_text = display_name
+                action = menu.addAction(display_text); action.setData(idx)
+                if is_cur:
+                    font = action.font(); font.setBold(True); action.setFont(font)
         pos = self.shot_display.mapToGlobal(self.shot_display.rect().bottomLeft())
         selected_action = menu.exec_(pos)
         if selected_action:
-            idx = selected_action.data(); self.combo.setCurrentIndex(idx); self._activate_current(idx)
+            # Handle both regular QAction and QWidgetAction
+            if isinstance(selected_action, QtWidgets.QWidgetAction):
+                idx = selected_action.data()
+            else:
+                idx = selected_action.data()
+            self.combo.setCurrentIndex(idx); self._activate_current(idx)
 
     def _activate_current(self, idx):
         fp=self.combo.itemData(idx, role=QtCore.Qt.UserRole)
@@ -1445,7 +1705,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.manager.show(); self.manager.raise_(); self.manager.activateWindow()
 
     # ---- Populate helpers ----
-    def populate(self, paths, shot_names=None):
+    def populate(self, paths, shot_names=None, base_dir=None):
         debug_print(f"📁 Populating MiniBar with {len(paths)} files")
         
         # Always clear combo first to prevent showing stale data
@@ -1479,20 +1739,60 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         
         for p in paths:
             # Extract username from path
-            path_parts = p.split(os.sep)
+            # Only scan relative path from base_dir to avoid detecting project name as user folder
+            if base_dir:
+                try:
+                    # Normalize paths for comparison
+                    base_dir_norm = os.path.normpath(base_dir)
+                    path_norm = os.path.normpath(p)
+                    
+                    # Check if path is within base_dir
+                    if path_norm.startswith(base_dir_norm):
+                        # Get relative path
+                        rel_path = os.path.relpath(path_norm, base_dir_norm)
+                        # Split relative path parts (use os.sep for cross-platform)
+                        path_parts = rel_path.split(os.sep)
+                        debug_print(f"🔍 Checking path: {p}")
+                        debug_print(f"   Base dir: {base_dir_norm}")
+                        debug_print(f"   Relative: {rel_path}")
+                        debug_print(f"   Parts: {path_parts}")
+                    else:
+                        # Path not under base_dir, use full path (fallback)
+                        path_parts = path_norm.split(os.sep)
+                        debug_print(f"⚠️ Path not under base_dir, using full path: {p}")
+                except Exception as e:
+                    # Fallback to full path if relative calculation fails
+                    debug_print(f"⚠️ Error calculating relative path: {e}, using full path")
+                    path_parts = os.path.normpath(p).split(os.sep)
+            else:
+                # No base_dir provided, use full path (backward compatibility)
+                path_parts = os.path.normpath(p).split(os.sep)
+            
             found_user = None
             
+            # Scan from end to start (relative to base_dir)
             for part in reversed(path_parts):
                 if is_user_workspace(part):
                     found_user = part
+                    debug_print(f"   ✅ Found user folder: {found_user}")
                     break
+                else:
+                    # Debug why it's not a user workspace
+                    subdept_pattern = r'^\d{2}_'
+                    user_pattern = r'^[a-z][a-z0-9_]*$'
+                    debug_print(f"   ❌ '{part}' is not user workspace:")
+                    debug_print(f"      - starts with '_': {part.startswith('_')}")
+                    debug_print(f"      - matches subdept pattern: {bool(re.match(subdept_pattern, part))}")
+                    debug_print(f"      - matches user pattern: {bool(re.match(user_pattern, part))}")
             
             if found_user:
                 if found_user not in files_by_user:
                     files_by_user[found_user] = []
                 files_by_user[found_user].append(p)
+                debug_print(f"   📁 Added to user group: {found_user}")
             else:
                 files_without_user.append(p)
+                debug_print(f"   ⚠️ No user detected, added to 'files_without_user'")
         
         # Sort users: current user first, then alphabetically
         sorted_users = sorted(files_by_user.keys(), key=lambda x: (x != current_user, x))
@@ -1574,7 +1874,22 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             p=model.item(r, 0).data(QtCore.Qt.UserRole+1)
             shot_name = model.item(r, 0).text()
             if p: paths.append(p); shot_names[p]=shot_name
-        self.populate(paths, shot_names)
+        
+        # Try to get base_dir from settings or manager
+        base_dir = None
+        if hasattr(self, 'manager') and hasattr(self.manager, 'root_le') and hasattr(self.manager, 'project_cb'):
+            root = self.manager.root_le.text().strip()
+            project = self.manager.project_cb.currentText().strip()
+            if root and project:
+                base_dir = os.path.join(root, project)
+        else:
+            # Fallback to settings
+            root = self.s.value("project_root", "", type=str)
+            project = self.s.value("current_project", "", type=str)
+            if root and project:
+                base_dir = os.path.join(root, project)
+        
+        self.populate(paths, shot_names, base_dir=base_dir)
 
     def _setup_main_window_monitoring(self):
         """Setup monitoring của Houdini main window để update position khi cần"""
@@ -1722,7 +2037,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 for filepath, asset_name, dept_name in asset_files:
                     asset_names[filepath] = asset_name
                 
-                self.populate(paths, asset_names)
+                self.populate(paths, asset_names, base_dir=base_dir)
                 
             else:  # Shots mode
                 subpath = tab_config.get('subpath', '02_shots/03_lighting')
@@ -1744,7 +2059,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                         debug_print(f"  {i+1}. {os.path.basename(filepath)}")
                     if len(files) > 5:
                         debug_print(f"  ... and {len(files) - 5} more shot files")
-                self.populate(files)
+                # base_dir for shots is project root
+                base_dir = os.path.join(root, project)
+                self.populate(files, base_dir=base_dir)
             
         except Exception as e:
             debug_print(f"⚠️ Error refreshing files: {e}")
@@ -1806,7 +2123,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             asset_names = {f[0]: f[1] for f in files_data}  # filepath -> asset_name
             
             debug_print(f"📍 Found {len(files_data)} files")
-            self.populate(paths, asset_names)
+            # base_dir is project path for standalone mode
+            base_dir = project_path
+            self.populate(paths, asset_names, base_dir=base_dir)
             
         except Exception as e:
             if DEBUG:
@@ -1940,12 +2259,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
     def _show_settings_menu(self):
         """Show settings menu with User/Settings/About options"""
         menu = QtWidgets.QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background:#1f1f1f; color:#e5e5e5; border:1px solid #3a3a3a; }
-            QMenu::item { padding:8px 16px; }
-            QMenu::item:selected { background:#3d5a99; }
-            QMenu::separator { height: 1px; background: #3a3a3a; }
-        """)
+        menu.setStyleSheet(get_menu_style(include_separator=True))
         
         # Get current username
         from .file_manager_helpers import get_current_username
@@ -2142,7 +2456,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             from mono_tools import __version__
             version = __version__
         except:
-            version = "2.3.0"
+            version = "2.4.0"
         
         about_text = f"""
 MonoStudio - Houdini Pipeline Tools
