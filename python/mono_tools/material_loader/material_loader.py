@@ -16,125 +16,106 @@ except Exception:
     # Local import path when executed as a script
     from mono_tools.qt import QtWidgets, QtCore, QtGui  # type: ignore
 
-# Try to import backend functions from the original module if running inside Houdini
-create_usd_rs_materials_by_prefix = None
-create_karma_subnet_materials_by_prefix = None
+# Try to import backend functions from refactored modules
 parse_texture_filename = None
 hou = None
+
+# Import engine registry for dynamic engine discovery
 try:
-    # local import to avoid failing the module when Houdini isn't present
-    import Mono_MaterialLoader as backend
-    create_usd_rs_materials_by_prefix = getattr(backend, 'create_usd_rs_materials_by_prefix', None)
-    create_karma_subnet_materials_by_prefix = getattr(backend, 'create_karma_subnet_materials_by_prefix', None)
-    parse_texture_filename = getattr(backend, 'parse_texture_filename', None)
+    from .material_loader_registry import (
+        get_available_engines,
+        get_engine,
+        get_engine_display_names,
+    )
+except ImportError:
+    try:
+        from mono_tools.material_loader.material_loader_registry import (
+            get_available_engines,
+            get_engine,
+            get_engine_display_names,
+        )
+    except ImportError:
+        # Fallback: provide empty functions
+        def get_available_engines():
+            return []
+        def get_engine(name):
+            return None
+        def get_engine_display_names():
+            return {}
+
+try:
+    # Try importing hou first
     try:
         import hou as _hou  # Houdini Python module
         hou = _hou
     except Exception:
         hou = None
-except Exception:
+    
+    # Try to import parser from refactored modules
+    if hou:
+        try:
+            from .material_loader_helpers import parse_texture_filename, fallback_parse_texture_filename
+            # Use fallback parser if main parser fails
+            if not parse_texture_filename:
+                parse_texture_filename = fallback_parse_texture_filename
+        except ImportError:
+            # Fallback: Try relative imports
+            try:
+                from mono_tools.material_loader.material_loader_helpers import parse_texture_filename, fallback_parse_texture_filename
+                if not parse_texture_filename:
+                    parse_texture_filename = fallback_parse_texture_filename
+            except ImportError:
+                # Legacy: Try to import from utilities folder for backward compatibility
+                backend = None
+                try:
+                    # Method 1: Try utilities.Mono_MaterialLoader (if utilities is a package)
+                    from utilities import Mono_MaterialLoader as backend
+                except ImportError:
+                    try:
+                        # Method 2: Try direct import (if on sys.path)
+                        import Mono_MaterialLoader as backend
+                    except ImportError:
+                        try:
+                            # Method 3: Try using importlib to load from path
+                            import importlib.util
+                            import os
+                            # Get MONO_STUDIO path from environment
+                            mono_studio = os.environ.get('MONO_STUDIO')
+                            if mono_studio:
+                                backend_path = os.path.join(mono_studio, 'python', 'utilities', 'Mono_MaterialLoader.py')
+                                if os.path.exists(backend_path):
+                                    spec = importlib.util.spec_from_file_location("Mono_MaterialLoader", backend_path)
+                                    if spec and spec.loader:
+                                        backend = importlib.util.module_from_spec(spec)
+                                        spec.loader.exec_module(backend)
+                        except Exception:
+                            backend = None
+                
+                if backend:
+                    parse_texture_filename = getattr(backend, 'parse_texture_filename', None)
+except Exception as e:
     # Running outside of Houdini or broken import; backend operations will be disabled.
-    create_usd_rs_materials_by_prefix = None
-    create_karma_subnet_materials_by_prefix = None
     parse_texture_filename = None
-    hou = None
+    # Don't overwrite hou if it was successfully imported
+    if hou is None:
+        hou = None
 
 
-def _fallback_parse_texture_filename(filename: str):
-    """Best-effort parser for common PBR texture naming.
-    Returns a 5-tuple: (prefix, ttype, ext, udim, variant)
-    Example supported tokens: basecolor|albedo|diffuse, roughness, metallic|metalness,
-    normal, height|displacement, specular, emissive, opacity|transparency, ao.
-    Detects UDIM tokens: 1001-1999 or <UDIM> in name.
-    """
-    name = os.path.basename(filename)
-    stem, ext = os.path.splitext(name)
-    lower = stem.lower()
-
-    # UDIM detection
-    udim = None
-    for token in ("<udim>", "{udim}"):
-        if token in lower:
-            udim = token
-            break
-    if udim is None:
-        # 4-digit UDIM near the end
-        for part in lower.replace(".", "_").split("_"):
-            if part.isdigit() and len(part) == 4 and part.startswith("1"):
-                udim = part
-                break
-
-    # Texture type mapping
-    mapping = {
-        "basecolor": "basecolor",
-        "albedo": "basecolor",
-        "diffuse": "basecolor",
-        "color": "basecolor",
-        "col": "basecolor",
-        "base": "basecolor",
-        "roughness": "roughness",
-        "rough": "roughness",
-        "metallic": "metallic",
-        "metalness": "metallic",
-        "metal": "metallic",
-        "specular": "specular",
-        "spec": "specular",
-        "normal": "normal",
-        "nrml": "normal",
-        "nrm": "normal",
-        "bump": "height",
-        "height": "height",
-        "displacement": "height",
-        "disp": "height",
-        "emissive": "emissive",
-        "emit": "emissive",
-        "emission": "emissive",
-        "opacity": "opacity",
-        "alpha": "opacity",
-        "transparency": "opacity",
-        "trans": "opacity",
-        "ao": "occlusion",
-        "occlusion": "occlusion",
-    }
-
-    detected = None
-    token_hit = None
-    parts = lower.replace("-", "_").split("_")
-    for p in parts[::-1]:  # search from rightmost token
-        if p in mapping:
-            detected = mapping[p]
-            token_hit = p
-            break
-    if detected is None:
-        # Try suffix patterns like _bc, _r, _m, _n, _h, _d
-        suffix_map = {
-            "bc": "basecolor",
-            "r": "roughness",
-            "rough": "roughness",
-            "m": "metallic",
-            "metal": "metallic",
-            "n": "normal",
-            "norm": "normal",
-            "h": "height",
-            "d": "height",
-            "s": "specular",
-            "e": "emissive",
-            "emit": "emissive",
-            "a": "opacity",
-        }
-        last = parts[-1]
-        if last in suffix_map:
-            detected = suffix_map[last]
-
-    prefix = stem
-    variant = token_hit or ""
-    if detected is None:
-        return None
-    return (prefix, detected, ext.lstrip("."), udim or "", variant)
-
-# If backend parser is missing, use fallback
+# If backend parser is missing, use fallback from helpers
 if parse_texture_filename is None:
-    parse_texture_filename = _fallback_parse_texture_filename
+    try:
+        from .material_loader_helpers import fallback_parse_texture_filename
+        parse_texture_filename = fallback_parse_texture_filename
+    except ImportError:
+        try:
+            from mono_tools.material_loader.material_loader_helpers import fallback_parse_texture_filename
+            parse_texture_filename = fallback_parse_texture_filename
+        except ImportError:
+            # Last resort: define inline fallback (shouldn't happen if refactoring worked)
+            def _inline_fallback_parse_texture_filename(filename: str):
+                """Fallback parser if helpers module not available"""
+                return None
+            parse_texture_filename = _inline_fallback_parse_texture_filename
 
 class SimpleMaterialLoader(QtWidgets.QWidget):
     """A minimal, modern UI for material creation.
@@ -153,6 +134,7 @@ class SimpleMaterialLoader(QtWidgets.QWidget):
         super().__init__(parent)
         self.setWindowTitle("Mono Material Loader — Simple")
         self.setMinimumSize(640, 320)
+        self._is_creating = False  # Guard to prevent duplicate execution
 
         self._build_ui()
 
@@ -191,26 +173,54 @@ class SimpleMaterialLoader(QtWidgets.QWidget):
         self.udim_cb = QtWidgets.QCheckBox("Enable UDIM")
         self.udim_cb.setChecked(True)
         options_row.addWidget(self.udim_cb)
+
+        # Debug checkbox (controls connection logging)
+        self.debug_cb = QtWidgets.QCheckBox("Debug connections")
+        default_debug = os.environ.get("MONO_MATERIAL_DEBUG_CONNECTIONS", "0") == "1"
+        self.debug_cb.setChecked(default_debug)
+        options_row.addWidget(self.debug_cb)
+
+        # Debug log file picker
+        file_row = QtWidgets.QHBoxLayout()
+        self.debug_file_edit = QtWidgets.QLineEdit(os.environ.get("MONO_MATERIAL_DEBUG_FILE", "").strip())
+        browse_debug = QtWidgets.QPushButton("File...")
+        browse_debug.setMaximumWidth(70)
+        browse_debug.clicked.connect(self._on_browse_debug_file)
+        file_row.addWidget(self.debug_file_edit)
+        file_row.addWidget(browse_debug)
+        form.addRow("Debug log file:", file_row)
         options_row.addStretch()
         form.addRow("Options:", options_row)
 
-        # Renderer selector using segmented buttons (modern look)
+        # Renderer selector using segmented buttons (dynamic based on available engines)
         renderer_row = QtWidgets.QHBoxLayout()
         self.renderer_group = QtWidgets.QButtonGroup(self)
-        rs_btn = QtWidgets.QPushButton("Redshift")
-        rs_btn.setCheckable(True)
-        km_btn = QtWidgets.QPushButton("Karma")
-        km_btn.setCheckable(True)
-        rs_btn.setChecked(True)
-        self.renderer_group.addButton(rs_btn, 0)
-        self.renderer_group.addButton(km_btn, 1)
-        for b in (rs_btn, km_btn):
-            b.setMinimumWidth(110)
-            b.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
-        renderer_row.addWidget(rs_btn)
-        renderer_row.addWidget(km_btn)
+        
+        # Get available engines from registry
+        available_engines = get_available_engines()
+        display_names = get_engine_display_names()
+        
+        if not available_engines:
+            # Fallback: show default engines if registry is empty
+            available_engines = ["redshift", "karma"]
+            display_names = {"redshift": "Redshift", "karma": "Karma"}
+        
+        # Create buttons dynamically
+        for idx, engine_name in enumerate(available_engines):
+            btn = QtWidgets.QPushButton(display_names.get(engine_name, engine_name.title()))
+            btn.setCheckable(True)
+            if idx == 0:
+                btn.setChecked(True)  # First engine is default
+            self.renderer_group.addButton(btn, idx)
+            btn.setMinimumWidth(110)
+            btn.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+            renderer_row.addWidget(btn)
+        
         renderer_row.addStretch()
         form.addRow("Renderer:", renderer_row)
+        
+        # Store engine names for lookup
+        self._engine_names = available_engines
 
         layout.addLayout(form)
 
@@ -240,6 +250,11 @@ class SimpleMaterialLoader(QtWidgets.QWidget):
         folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select texture folder")
         if folder:
             self.folder_edit.setText(os.path.normpath(folder))
+
+    def _on_browse_debug_file(self):
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Select debug log file", filter="Log Files (*.log *.txt);;All Files (*.*)")
+        if file_path:
+            self.debug_file_edit.setText(os.path.normpath(file_path))
 
     def _update_preview_types(self):
         folder = self.folder_edit.text().strip()
@@ -271,11 +286,30 @@ class SimpleMaterialLoader(QtWidgets.QWidget):
             self.preview.setPlainText("No texture types detected or parser not available.")
 
     def _on_create(self):
+        # Prevent duplicate execution
+        if self._is_creating:
+            return
+        
         folder = self.folder_edit.text().strip()
         matlib = self.matlib_edit.text().strip()
         udim = self.udim_cb.isChecked()
+        debug_enabled = self.debug_cb.isChecked()
+        debug_file = self.debug_file_edit.text().strip()
         renderer_idx = self.renderer_group.checkedId()
-        renderer = "Karma" if renderer_idx == 1 else "Redshift"
+        
+        # Debug: Print engine selection info
+        print(f"DEBUG: Renderer button index: {renderer_idx}")
+        print(f"DEBUG: Available engines: {self._engine_names}")
+        print(f"DEBUG: Engine names length: {len(self._engine_names)}")
+        
+        # Get engine name from registry
+        if 0 <= renderer_idx < len(self._engine_names):
+            engine_name = self._engine_names[renderer_idx]
+            print(f"DEBUG: Selected engine name: {engine_name}")
+        else:
+            # Fallback to first available engine
+            engine_name = self._engine_names[0] if self._engine_names else "karma"
+            print(f"DEBUG: Using fallback engine: {engine_name}")
 
         # Basic validation
         if not folder or not os.path.isdir(folder):
@@ -294,28 +328,67 @@ class SimpleMaterialLoader(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Material library", "Node path not found in the scene.")
                 return
 
-        # If backend functions are available, call them; otherwise inform the user.
-        if renderer == "Redshift" and create_usd_rs_materials_by_prefix and hou:
-            try:
-                create_usd_rs_materials_by_prefix(folder, matlib_node, {}, udim, position_offset=(0.0, 0.0))
-                QtWidgets.QMessageBox.information(self, "Done", "Redshift materials created (if running inside Houdini).")
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(self, "Error", str(e))
-        elif renderer == "Karma" and create_karma_subnet_materials_by_prefix and hou:
-            try:
-                create_karma_subnet_materials_by_prefix(folder, matlib_node, {}, udim, position_offset=(0.0, 0.0))
-                QtWidgets.QMessageBox.information(self, "Done", "Karma materials created (if running inside Houdini).")
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(self, "Error", str(e))
-        else:
+        # Disable button and set creating flag
+        self._is_creating = True
+        self.create_btn.setEnabled(False)
+        self.create_btn.setText("Creating...")
+        
+        try:
+            # Update debug environment flag before running engine
+            os.environ["MONO_MATERIAL_DEBUG_CONNECTIONS"] = "1" if debug_enabled else "0"
+            os.environ["MONO_MATERIAL_DEBUG_FILE"] = debug_file if debug_file else ""
+            print(f"DEBUG: Connection logging {'enabled' if debug_enabled else 'disabled'}")
+            if debug_file:
+                print(f"DEBUG: Connection log file: {debug_file}")
+
+            # Get engine info from registry
+            engine_info = get_engine(engine_name)
+            
+            if not engine_info:
+                QtWidgets.QMessageBox.warning(
+                    self, 
+                    "Engine not found", 
+                    f"Engine '{engine_name}' is not registered. Available engines: {', '.join(get_available_engines())}"
+                )
+                return
+            
             if not hou:
-                QtWidgets.QMessageBox.information(self, "Not available", "Houdini Python module (hou) not found. Run this inside Houdini.")
-            elif renderer == "Redshift" and not create_usd_rs_materials_by_prefix:
-                QtWidgets.QMessageBox.information(self, "Not available", "Missing backend: Mono_MaterialLoader.create_usd_rs_materials_by_prefix. Ensure the backend module is on sys.path.")
-            elif renderer == "Karma" and not create_karma_subnet_materials_by_prefix:
-                QtWidgets.QMessageBox.information(self, "Not available", "Missing backend: Mono_MaterialLoader.create_karma_subnet_materials_by_prefix. Ensure the backend module is on sys.path.")
-            else:
-                QtWidgets.QMessageBox.information(self, "Not available", "Creation functions are not available in this environment.")
+                QtWidgets.QMessageBox.information(
+                    self, 
+                    "Not available", 
+                    "Houdini Python module (hou) not found. Run this inside Houdini."
+                )
+                return
+            
+            create_function = engine_info.get("create_function")
+            if not create_function:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Engine error",
+                    f"Engine '{engine_name}' is registered but has no create function."
+                )
+                return
+            
+            # Call the engine's create function
+            try:
+                print(f"DEBUG: Calling create function for engine: {engine_name}")
+                print(f"DEBUG: Function: {create_function}")
+                create_function(folder, matlib_node, {}, udim, position_offset=(0.0, 0.0))
+                display_name = engine_info.get("display_name", engine_name.title())
+                QtWidgets.QMessageBox.information(
+                    self, 
+                    "Done", 
+                    f"{display_name} materials created successfully."
+                )
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to create materials:\n{str(e)}")
+                import traceback
+                print(f"DEBUG: Exception traceback:\n{traceback.format_exc()}")
+        finally:
+            # Re-enable button and reset flag
+            self._is_creating = False
+            self.create_btn.setEnabled(True)
+            self.create_btn.setText("Create Materials")
 
 
 def show_material_loader(parent: Optional[QtWidgets.QWidget] = None):

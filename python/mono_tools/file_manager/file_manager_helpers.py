@@ -568,6 +568,221 @@ def load_asset_types_config():
         {"id": "_environments", "name": "Environments", "prefix": "env_", "icon": "🏞️"},
     ]
 
+def get_asset_prefix(type_name, asset_name=None):
+    """
+    Get asset prefix for a given type name.
+    Centralized logic - used by all file/folder creation functions.
+    
+    Args:
+        type_name: Asset type like "_characters"
+        asset_name: Optional asset name to check if prefix already exists
+    
+    Returns:
+        Prefix string like "char_" or empty string
+    """
+    # Check if asset_name already has prefix
+    if asset_name:
+        prefixes = ['char_', 'prop_', 'env_', 'veh_', 'fx_', 'weap_', 'set_', 'cam_', 'light_']
+        for prefix in prefixes:
+            if asset_name.lower().startswith(prefix):
+                return ''  # Already has prefix
+    
+    # Try to get prefix from asset types config
+    asset_types = load_asset_types_config()
+    for atype in asset_types:
+        if atype['id'] == type_name:
+            prefix = atype.get('prefix', '')
+            if prefix:
+                return prefix
+    
+    # Fallback to guessing (should rarely happen if config is correct)
+    type_lower = type_name.lower()
+    if 'character' in type_lower:
+        return 'char_'
+    elif 'prop' in type_lower:
+        return 'prop_'
+    elif 'environment' in type_lower:
+        return 'env_'
+    elif 'vehicle' in type_lower:
+        return 'veh_'
+    elif 'weapon' in type_lower:
+        return 'weap_'
+    elif 'fx' in type_lower or 'effect' in type_lower:
+        return 'fx_'
+    else:
+        return ''
+
+
+def ensure_asset_name_has_prefix(type_name, asset_name):
+    """
+    Ensure asset name has correct prefix based on type.
+    
+    Args:
+        type_name: Asset type like "_characters"
+        asset_name: Asset name like "Cyborg" or "char_Cyborg"
+    
+    Returns:
+        Asset name with prefix: "char_Cyborg"
+    """
+    prefix = get_asset_prefix(type_name, asset_name)
+    if prefix and not asset_name.lower().startswith(prefix):
+        return f"{prefix}{asset_name}"
+    return asset_name
+
+
+def build_file_directory_path(root, project, type_name, asset_name, department, 
+                               subdepartment=None, username=None, is_assets=True):
+    """
+    Build the directory path where a file should be created.
+    Centralized path building logic - used by dialogs and creation functions.
+    
+    Args:
+        root: Project root directory
+        project: Project name
+        type_name: Type like "_characters" or "Shots"
+        asset_name: Asset name like "char_Cyborg" (should already have prefix)
+        department: Department like "01_modeling"
+        subdepartment: Optional subdepartment like "01_sculpt"
+        username: Optional username for user workspace
+        is_assets: True for assets, False for shots
+    
+    Returns:
+        Full directory path (absolute)
+    """
+    if is_assets:
+        # Assets: 01_assets/_characters/char_Cyborg/01_modeling/[01_sculpt/]username/
+        path_parts = [root, project, "01_assets", type_name, asset_name, department]
+    else:
+        # Shots: 02_shots/department/[subdept/]username/
+        path_parts = [root, project, "02_shots", department]
+    
+    if subdepartment:
+        path_parts.append(subdepartment)
+    
+    if username:
+        path_parts.append(username)
+    
+    return os.path.join(*path_parts)
+
+
+def build_file_preview_path(type_name, asset_name, department, subdepartment=None, 
+                           username=None, is_assets=True, filename=None):
+    """
+    Build relative path for preview in dialogs.
+    Uses same logic as build_file_directory_path but returns relative path.
+    
+    Args:
+        type_name: Type like "_characters" or "Shots"
+        asset_name: Asset name like "char_Cyborg"
+        department: Department like "01_modeling"
+        subdepartment: Optional subdepartment
+        username: Optional username
+        is_assets: True for assets, False for shots
+        filename: Optional filename to append
+    
+    Returns:
+        Relative path string for display
+    """
+    if is_assets:
+        path_parts = ["01_assets", type_name, asset_name, department]
+    else:
+        path_parts = ["02_shots", department]
+    
+    if subdepartment:
+        path_parts.append(subdepartment)
+    
+    if username:
+        path_parts.append(username)
+    
+    if filename:
+        path_parts.append(filename)
+    
+    return os.path.join(*path_parts)
+
+
+def create_shot_folder_structure(base_dir, shot_name, departments=None):
+    """
+    Create complete folder structure for a new shot.
+    Similar to create_asset_folder_structure but for shots.
+    
+    Args:
+        base_dir: Project root directory
+        shot_name: Shot name like "sq010_sh0010"
+        departments: List of department configs (None = use standard from config)
+    
+    Returns:
+        (success, shot_folder_path, message)
+    """
+    try:
+        # Ensure parent folders exist
+        shots_dir = os.path.join(base_dir, "02_shots")
+        os.makedirs(shots_dir, exist_ok=True)
+        
+        # Create shot folder
+        shot_folder = os.path.join(shots_dir, shot_name)
+        
+        if os.path.exists(shot_folder):
+            return False, shot_folder, f"Shot folder already exists:\n{shot_folder}"
+        
+        # Load shot departments if not provided
+        if not departments:
+            config = load_department_config()
+            if config and 'shot_departments' in config:
+                departments = config['shot_departments']
+            else:
+                return False, "", "No shot departments configured"
+        
+        # Create all department folders with subdepartments
+        created_structure = []
+        for dept in departments:
+            dept_id = dept['id']
+            dept_folder = os.path.join(shot_folder, dept_id)
+            os.makedirs(dept_folder, exist_ok=True)
+            created_structure.append(dept_id)
+            
+            # Create subdepartments
+            for subdept in dept.get('subdepartments', []):
+                subdept_id = subdept['id']
+                subdept_folder = os.path.join(dept_folder, subdept_id)
+                os.makedirs(subdept_folder, exist_ok=True)
+                created_structure.append(f"{dept_id}/{subdept_id}")
+                
+                # Subdepartment publish folder
+                if subdept.get('create_publish', False):
+                    subdept_publish = os.path.join(subdept_folder, '_publish')
+                    os.makedirs(subdept_publish, exist_ok=True)
+                    created_structure.append(f"{dept_id}/{subdept_id}/_publish")
+            
+            # Software subfolders
+            for sw in dept.get('software_folders', []):
+                sw_folder = os.path.join(dept_folder, sw)
+                os.makedirs(sw_folder, exist_ok=True)
+                created_structure.append(f"{dept_id}/{sw}")
+            
+            # Department publish folder
+            if dept.get('create_publish', False):
+                publish_folder = os.path.join(dept_folder, '_publish')
+                os.makedirs(publish_folder, exist_ok=True)
+                created_structure.append(f"{dept_id}/_publish")
+        
+        # Build success message
+        success_msg = f"Shot folder created successfully!\n\n"
+        success_msg += f"Shot: {shot_name}\n"
+        success_msg += f"Location: {shot_folder}\n\n"
+        success_msg += f"Structure created:\n"
+        for item in created_structure:
+            if '/' in item:
+                dept, sub = item.split('/', 1)
+                success_msg += f"  {dept}/\n    └─ {sub}/\n"
+            else:
+                success_msg += f"  {item}/\n"
+        
+        return True, shot_folder, success_msg
+        
+    except Exception as e:
+        return False, "", f"Failed to create shot folder:\n{str(e)}"
+
+
 def create_asset_folder_structure(base_dir, type_name, asset_name, departments=None):
     """
     Create complete folder structure for a new asset with software subfolders
@@ -582,31 +797,8 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
         (success, asset_folder_path, message)
     """
     try:
-        # Add prefix if not present (from asset_types config if available)
-        if not any(asset_name.lower().startswith(p) for p in ['char_', 'prop_', 'env_', 'veh_', 'fx_']):
-            # Try to get prefix from asset types config
-            asset_types = load_asset_types_config()
-            prefix = None
-            for atype in asset_types:
-                if atype['id'] == type_name:
-                    prefix = atype.get('prefix', '')
-                    break
-            
-            # Fallback to guessing
-            if not prefix:
-                if 'character' in type_name.lower():
-                    prefix = 'char_'
-                elif 'prop' in type_name.lower():
-                    prefix = 'prop_'
-                elif 'environment' in type_name.lower():
-                    prefix = 'env_'
-                elif 'vehicle' in type_name.lower():
-                    prefix = 'veh_'
-                else:
-                    prefix = ''
-            
-            if prefix:
-                asset_name = f"{prefix}{asset_name}"
+        # Use centralized prefix helper
+        asset_name = ensure_asset_name_has_prefix(type_name, asset_name)
         
         # Ensure parent folders exist
         assets_dir = os.path.join(base_dir, "01_assets")
@@ -717,7 +909,7 @@ def create_asset_folder_structure(base_dir, type_name, asset_name, departments=N
     except Exception as e:
         return False, "", f"Failed to create asset folder:\n{str(e)}"
 
-def generate_new_filename(type_name, asset_name, department, version="v001", ext=".hip"):
+def generate_new_filename(type_name, asset_name, department, version="v001", ext=".hip", subdepartment=None):
     """
     Generate filename in format: $type_$assetname_$department_$version.ext
     
@@ -727,13 +919,21 @@ def generate_new_filename(type_name, asset_name, department, version="v001", ext
         department: Department like "01_modeling" → "modeling"
         version: Version string like "v001"
         ext: File extension like ".hip"
+        subdepartment: Optional subdepartment like "01_sculpt" → "sculpt"
+                        If provided, uses subdepartment name instead of department name
     
     Returns:
         Filename like "characters_Cyborg_modeling_v001.hip"
+        Or "characters_Cyborg_sculpt_v001.hip" if subdepartment is provided
     """
     clean_type = clean_type_name(type_name)
     clean_asset = clean_asset_name(asset_name)
-    clean_dept = clean_department_name(department)
+    
+    # Use subdepartment name if provided, otherwise use department name
+    if subdepartment:
+        clean_dept = clean_department_name(subdepartment)
+    else:
+        clean_dept = clean_department_name(department)
     
     # Ensure version has 'v' prefix
     if not version.startswith('v'):
@@ -927,6 +1127,99 @@ def get_subdepartments_for_department(dept_id):
     
     return []
 
+
+def get_subdepartments_with_metadata(base_dir, type_name, dept_id, is_assets=True):
+    """
+    Get subdepartments with metadata: scan from folders + merge with config
+    
+    Args:
+        base_dir: Project root directory
+        type_name: Type name (e.g., "_characters", "Shots")
+        dept_id: Department ID (e.g., "01_modeling", "02_sim")
+        is_assets: Whether this is an assets type or shots type
+    
+    Returns:
+        List of subdepartment dicts with 'id', 'name', 'from_config'
+    """
+    # 1. Get subdepartments from config
+    subdepts_from_config = get_subdepartments_for_department(dept_id)
+    config_map = {s['id']: s for s in subdepts_from_config}
+    
+    # 2. Scan subdepartments from actual folders
+    actual_subdepts = {}
+    
+    try:
+        if is_assets:
+            # For assets: scan type/asset_name/dept_id/ for subdepartments
+            type_dir = os.path.join(base_dir, "01_assets", type_name)
+            if os.path.isdir(type_dir):
+                # Scan all assets in this type
+                for asset_entry in os.scandir(type_dir):
+                    if (asset_entry.is_dir() and 
+                        not asset_entry.name.startswith('.') and 
+                        asset_entry.name not in IGNORE_FOLDERS):
+                        dept_folder = os.path.join(asset_entry.path, dept_id)
+                        if os.path.isdir(dept_folder):
+                            # Scan subdepartments in this department
+                            for entry in os.scandir(dept_folder):
+                                if entry.is_dir():
+                                    pattern_match = SUBDEPT_PATTERN.match(entry.name)
+                                    is_reserved = entry.name in RESERVED_SYSTEM_FOLDERS
+                                    is_hidden = entry.name.startswith('.')
+                                    
+                                    if (not is_hidden and 
+                                        not is_reserved and
+                                        pattern_match):
+                                        # Found actual subdepartment folder
+                                        if entry.name not in actual_subdepts:
+                                            actual_subdepts[entry.name] = {
+                                                'id': entry.name,
+                                                'name': entry.name.split('_')[-1].capitalize(),
+                                                'from_config': False
+                                            }
+        else:
+            # For shots: scan 02_shots/dept_id/ for subdepartments
+            shots_dir = os.path.join(base_dir, "02_shots")
+            dept_folder = os.path.join(shots_dir, dept_id)
+            if os.path.isdir(dept_folder):
+                for entry in os.scandir(dept_folder):
+                    if entry.is_dir():
+                        pattern_match = SUBDEPT_PATTERN.match(entry.name)
+                        is_reserved = entry.name in RESERVED_SYSTEM_FOLDERS
+                        is_hidden = entry.name.startswith('.')
+                        
+                        if (not is_hidden and 
+                            not is_reserved and
+                            pattern_match):
+                            if entry.name not in actual_subdepts:
+                                actual_subdepts[entry.name] = {
+                                    'id': entry.name,
+                                    'name': entry.name.split('_')[-1].capitalize(),
+                                    'from_config': False
+                                }
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Error scanning subdepartments: {e}")
+    
+    # 3. Merge: actual folders + config (config has priority for name)
+    merged_subdepts = {}
+    
+    # First, add actual folders found
+    for subdept_id, subdept_info in actual_subdepts.items():
+        merged_subdepts[subdept_id] = subdept_info
+    
+    # Then, add/update from config (config has priority for name)
+    for subdept in subdepts_from_config:
+        subdept_id = subdept['id']
+        merged_subdepts[subdept_id] = {
+            'id': subdept_id,
+            'name': subdept.get('name', subdept_id.split('_')[-1].capitalize()),
+            'from_config': True
+        }
+    
+    # Sort by ID
+    return sorted(merged_subdepts.values(), key=lambda x: x['id'])
+
 def is_subdepartment_folder(folder_name, dept_id):
     """
     Check if folder is a valid subdepartment (not user folder)
@@ -978,6 +1271,86 @@ def is_user_workspace(folder_name):
         return True
     
     return False
+
+
+def scan_user_workspaces_in_path(base_dir, type_name, asset_name, department, subdepartment=None, is_assets=True):
+    """
+    Scan for user workspace folders in department/subdepartment path
+    
+    Args:
+        base_dir: Project root directory
+        type_name: Type name (e.g., "_characters", "Shots")
+        asset_name: Asset name (for assets only)
+        department: Department ID (e.g., "01_modeling")
+        subdepartment: Optional subdepartment ID (e.g., "01_sculpt")
+        is_assets: True for assets, False for shots
+    
+    Returns:
+        List of user workspace folder names found (sorted)
+    """
+    if not base_dir or not department:
+        return []
+    
+    user_folders = set()
+    
+    try:
+        if is_assets:
+            # For assets: scan type/asset_name/department/[subdept/] for user folders
+            if not type_name or not asset_name:
+                return []
+            
+            type_dir = os.path.join(base_dir, "01_assets", type_name)
+            if not os.path.isdir(type_dir):
+                return []
+            
+            asset_dir = os.path.join(type_dir, asset_name)
+            if not os.path.isdir(asset_dir):
+                return []
+            
+            dept_dir = os.path.join(asset_dir, department)
+            if not os.path.isdir(dept_dir):
+                return []
+            
+            # If subdepartment specified, scan in subdept folder
+            if subdepartment:
+                subdept_dir = os.path.join(dept_dir, subdepartment)
+                if os.path.isdir(subdept_dir):
+                    for entry in os.scandir(subdept_dir):
+                        if entry.is_dir() and is_user_workspace(entry.name):
+                            user_folders.add(entry.name)
+            else:
+                # Scan in department folder (not in subdept)
+                for entry in os.scandir(dept_dir):
+                    if entry.is_dir() and is_user_workspace(entry.name):
+                        user_folders.add(entry.name)
+        else:
+            # For shots: scan 02_shots/department/[subdept/] for user folders
+            shots_dir = os.path.join(base_dir, "02_shots")
+            if not os.path.isdir(shots_dir):
+                return []
+            
+            dept_dir = os.path.join(shots_dir, department)
+            if not os.path.isdir(dept_dir):
+                return []
+            
+            # If subdepartment specified, scan in subdept folder
+            if subdepartment:
+                subdept_dir = os.path.join(dept_dir, subdepartment)
+                if os.path.isdir(subdept_dir):
+                    for entry in os.scandir(subdept_dir):
+                        if entry.is_dir() and is_user_workspace(entry.name):
+                            user_folders.add(entry.name)
+            else:
+                # Scan in department folder (not in subdept)
+                for entry in os.scandir(dept_dir):
+                    if entry.is_dir() and is_user_workspace(entry.name):
+                        user_folders.add(entry.name)
+    
+    except Exception as e:
+        if DEBUG:
+            debug_print(f"⚠️ Error scanning user workspaces: {e}")
+    
+    return sorted(list(user_folders))
 
 def validate_username(username):
     """
@@ -1182,6 +1555,56 @@ def scan_departments_for_type(base_dir, type_name, is_assets=True):
     
     # Sort departments
     return sorted(list(departments))
+
+def get_departments_with_metadata(base_dir, type_name, is_assets=True):
+    """
+    Get departments with metadata: scan from folders + merge with config
+    
+    Args:
+        base_dir: Project root directory
+        type_name: Type name (e.g., "_characters", "Shots")
+        is_assets: Whether this is an assets type or shots type
+    
+    Returns:
+        List of department dicts with 'id', 'name', 'icon', 'from_config'
+        - 'from_config': True if department exists in config, False if scanned only
+    """
+    # 1. Scan departments from actual folders
+    scanned_dept_ids = scan_departments_for_type(base_dir, type_name, is_assets)
+    
+    # 2. Load config for metadata
+    config = load_department_config()
+    dept_map = {}
+    if config:
+        if is_assets and 'standard_departments' in config:
+            dept_map = {d['id']: d for d in config['standard_departments']}
+        elif not is_assets and 'shot_departments' in config:
+            dept_map = {d['id']: d for d in config['shot_departments']}
+    
+    # 3. Merge: scanned departments + config metadata
+    departments = []
+    for dept_id in scanned_dept_ids:
+        dept_config = dept_map.get(dept_id, {})
+        
+        departments.append({
+            'id': dept_id,
+            'name': dept_config.get('name', dept_id),  # Use config name or fallback to ID
+            'icon': dept_config.get('icon', '📁'),     # Use config icon or default
+            'from_config': dept_id in dept_map         # Flag if from config
+        })
+    
+    # 4. Also add departments from config that don't exist in folders yet
+    # (for creating new departments)
+    for dept_id, dept_config in dept_map.items():
+        if dept_id not in scanned_dept_ids:
+            departments.append({
+                'id': dept_id,
+                'name': dept_config.get('name', dept_id),
+                'icon': dept_config.get('icon', '📁'),
+                'from_config': True
+            })
+    
+    return departments
 
 def collect_files_with_filters(base_dir, type_name, department=None, subdept=None, username=None):
     """

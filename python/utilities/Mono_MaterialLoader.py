@@ -28,6 +28,8 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
     for filename in texture_files:
         parsed = parse_texture_filename(filename)
         if parsed:
+            # parse_texture_filename returns: (prefix, texture_type, ext, udim_token, variant)
+            # Unpack correctly
             prefix, ttype, ext, udim_token, variant = parsed
             if prefix not in materials:
                 materials[prefix] = {}
@@ -259,6 +261,45 @@ def create_usd_rs_materials_by_prefix(folder, matlib_node, prefix_map, udim, pos
     print(f"Successfully created {created_count} Redshift materials!")
     return True
 
+def _connect_to_material_input(surface_node, input_name, source_node, output_index):
+    """Helper function to connect texture to material input by name or index"""
+    try:
+        # Try to find input by name
+        input_names = surface_node.inputNames()
+        if input_names:
+            for i, name in enumerate(input_names):
+                if name and input_name.lower() in name.lower():
+                    surface_node.setInput(i, source_node, output_index)
+                    return True
+        
+        # Fallback: try common input indices based on input name
+        input_map = {
+            "basecolor": 0, "color": 0, "albedo": 0, "diffuse": 0,
+            "roughness": 1, "rough": 1,
+            "metallic": 2, "metalness": 2,
+            "normal": 3, "normalmap": 3,
+            "displacement": 4, "height": 4,
+            "emission": 5, "emissive": 5,
+            "opacity": 6, "alpha": 6,
+            "ao": 7, "occlusion": 7,
+        }
+        
+        if input_name.lower() in input_map:
+            idx = input_map[input_name.lower()]
+            if idx < len(surface_node.inputs() or []):
+                surface_node.setInput(idx, source_node, output_index)
+                return True
+        
+        # Last resort: try to set as parameter if available
+        parm = surface_node.parm(input_name) or surface_node.parm(input_name.lower())
+        if parm:
+            parm.set(source_node)
+            return True
+            
+    except Exception as e:
+        pass
+    return False
+
 def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udim, position_offset=(0.0, 0.0)):
     """Create Karma materials from texture folder"""
     import os
@@ -284,6 +325,8 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
     for filename in texture_files:
         parsed = parse_texture_filename(filename)
         if parsed:
+            # parse_texture_filename returns: (prefix, texture_type, ext, udim_token, variant)
+            # Unpack correctly
             prefix, ttype, ext, udim_token, variant = parsed
             if prefix not in materials:
                 materials[prefix] = {}
@@ -308,20 +351,33 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
             
             # Try different Karma node types for Houdini 21
             mat_builder = None
-            try:
-                # Try MaterialX Material Builder first
-                mat_builder = matlib_node.createNode("karma::MaterialXBuilder", safe_name)
-            except:
+            node_type_errors = []
+            
+            # List of possible node types to try (most common first)
+            # MaterialBuilder is a network node (can contain child nodes)
+            # Material is a single node (cannot contain child nodes, only parameters)
+            node_types_to_try = [
+                "MaterialBuilder",  # Standard Material Builder (network node - PREFERRED)
+                "karma::MaterialBuilder",  # With namespace (network node)
+                "Material::2.0",  # Material node version 2.0 (single node - parameters only)
+                "Material",  # Material node (single node - parameters only)
+                "subnet",  # Fallback: create subnet and add material inside
+            ]
+            
+            for node_type in node_types_to_try:
                 try:
-                    # Try standard Material Builder
-                    mat_builder = matlib_node.createNode("karma::MaterialBuilder", safe_name)
-                except:
-                    try:
-                        # Try Material node directly
-                        mat_builder = matlib_node.createNode("karma::Material", safe_name)
-                    except:
-                        print(f"Error: No valid Karma node type found for {safe_name}")
-                        continue
+                    mat_builder = matlib_node.createNode(node_type, safe_name)
+                    print(f"✓ Created {node_type} node: {safe_name}")
+                    break
+                except Exception as e:
+                    node_type_errors.append(f"{node_type}: {str(e)}")
+                    continue
+            
+            if mat_builder is None:
+                print(f"Error: No valid Karma node type found for {safe_name}")
+                print(f"Tried node types: {', '.join(node_types_to_try)}")
+                print(f"Errors: {'; '.join(node_type_errors)}")
+                continue
             
             # Convert position_offset tuple to Vector2 and add to material library position
             lib_pos = matlib_node.position()
@@ -329,78 +385,235 @@ def create_karma_subnet_materials_by_prefix(folder, matlib_node, prefix_map, udi
             new_pos = (lib_pos[0] + offset_x, lib_pos[1] + offset_y)
             mat_builder.setPosition(new_pos)
             
-            # Create Material Output if we have a MaterialXBuilder
-            if mat_builder.type().name() == "karma::MaterialXBuilder":
-                output = mat_builder.createNode("karma::MaterialOutput")
-                output.setPosition((0, 0))
-                
-                # Create Surface Shader
-                surface = mat_builder.createNode("karma::Material")
-                surface.setPosition((-200, 0))
-                output.setInput(0, surface, 0)
-            else:
-                # For direct Material node, we'll connect textures directly
-                surface = mat_builder
+            # Get node type name for logic branching
+            node_type_name = mat_builder.type().name()
+            is_network = mat_builder.isNetwork()
             
-            # Create texture nodes for each type
+            print(f"Created node type: {node_type_name}, isNetwork: {is_network}")
+            
+            # For MaterialBuilder or subnet (network nodes), we can create child nodes inside
+            if is_network and (node_type_name == "MaterialBuilder" or node_type_name == "subnet"):
+                # Create a Material node inside the builder/subnet
+                try:
+                    surface = mat_builder.createNode("Material", "material1")
+                    print(f"Created Material node inside {node_type_name}")
+                except:
+                    try:
+                        surface = mat_builder.createNode("Material::2.0", "material1")
+                        print(f"Created Material::2.0 node inside {node_type_name}")
+                    except Exception as e:
+                        print(f"Warning: Could not create Material node inside {node_type_name}: {e}")
+                        surface = mat_builder
+            elif "Material" in node_type_name and not is_network:
+                # For direct Material node (NOT a network), set texture paths directly to parameters
+                # Material node has parameters like basecolor, roughness, etc.
+                surface = mat_builder
+                print(f"Using Material node directly (parameter-based, not network)")
+            else:
+                # Fallback: try to find or create a material node
+                surface = mat_builder
+                print(f"Fallback: using {node_type_name} as surface")
+            
+            # Check if we're working with a network node (can create child nodes) or single node (parameters only)
+            if is_network:
+                # Create texture nodes for each type (network node approach)
+                # Try different texture node types
+                texture_node_types = ["Texture", "karma::Texture", "vop::Texture"]
+                
+                def create_texture_node(name_suffix):
+                    """Helper to create texture node with fallback types"""
+                    for tex_type in texture_node_types:
+                        try:
+                            return mat_builder.createNode(tex_type, f"{safe_name}_{name_suffix}")
+                        except:
+                            continue
+                    return None
+            else:
+                # For single Material node, we'll set parameters directly
+                def create_texture_node(name_suffix):
+                    """Not needed for parameter-based approach"""
+                    return None
+            
             for ttype, tex_path in textures.items():
                 try:
-                    if ttype == "basecolor":
-                        # Base Color
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_basecolor")
-                        tex_node.parm("filename").set(tex_path)
-                        surface.setInput(0, tex_node, 0)  # Base Color
+                    # If Material node is NOT a network, set texture paths directly to parameters
+                    if not is_network and "Material" in node_type_name:
+                        # Direct parameter setting for Material node
+                        param_names = {
+                            "basecolor": ["basecolor", "base_color", "color", "albedo", "diffuse"],
+                            "roughness": ["roughness", "rough"],
+                            "metallic": ["metallic", "metalness", "metallicness"],
+                            "normal": ["normal", "normalmap"],
+                            "displacement": ["displacement", "height"],
+                            "emission": ["emission", "emissive"],
+                            "opacity": ["opacity", "alpha", "transparency"],
+                            "ao": ["ao", "occlusion", "ambient_occlusion"]
+                        }
                         
-                    elif ttype == "roughness":
+                        # Find matching parameter name
+                        param_set = False
+                        for param_group, aliases in param_names.items():
+                            if ttype.lower() in aliases:
+                                for alias in aliases:
+                                    parm = surface.parm(alias) or surface.parm(f"{alias}_map") or surface.parm(f"{alias}_texture")
+                                    if parm:
+                                        parm.set(tex_path)
+                                        if udim:
+                                            # Try to enable UDIM
+                                            udim_parm = surface.parm(f"{alias}_udim") or surface.parm(f"{alias}_udim_enable")
+                                            if udim_parm:
+                                                udim_parm.set(1)
+                                        print(f"  Set {alias} parameter: {tex_path}")
+                                        param_set = True
+                                        break
+                                if param_set:
+                                    break
+                        
+                        if not param_set:
+                            print(f"  Warning: Could not find parameter for texture type: {ttype}")
+                        continue
+                    
+                    # Network node approach - create texture nodes
+                    # Try to set texture using parameter names (more reliable than input indices)
+                    if ttype == "basecolor" or ttype == "color" or ttype == "albedo" or ttype == "diffuse":
+                        # Base Color - try different parameter names
+                        tex_node = create_texture_node("basecolor")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            # Try to connect to basecolor input
+                            _connect_to_material_input(surface, "basecolor", tex_node, 0)
+                        
+                    elif ttype == "roughness" or ttype == "rough":
                         # Roughness
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_roughness")
-                        tex_node.parm("filename").set(tex_path)
-                        surface.setInput(1, tex_node, 0)  # Roughness
+                        tex_node = create_texture_node("roughness")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            _connect_to_material_input(surface, "roughness", tex_node, 0)
                         
-                    elif ttype == "metallic":
+                    elif ttype == "metallic" or ttype == "metallicness" or ttype == "metalness":
                         # Metallic
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_metallic")
-                        tex_node.parm("filename").set(tex_path)
-                        surface.setInput(2, tex_node, 0)  # Metallic
+                        tex_node = create_texture_node("metallic")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            _connect_to_material_input(surface, "metallic", tex_node, 0)
                         
-                    elif ttype == "normal":
+                    elif ttype == "normal" or ttype == "normalmap":
                         # Normal
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_normal")
-                        tex_node.parm("filename").set(tex_path)
-                        normal_map = mat_builder.createNode("karma::NormalMap")
-                        normal_map.setInput(0, tex_node, 0)
-                        surface.setInput(3, normal_map, 0)  # Normal
+                        tex_node = create_texture_node("normal")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            # Try to create normal map node
+                            try:
+                                normal_map = mat_builder.createNode("NormalMap", f"{safe_name}_normalmap")
+                                if normal_map:
+                                    normal_map.setInput(0, tex_node, 0)
+                                    _connect_to_material_input(surface, "normal", normal_map, 0)
+                                else:
+                                    _connect_to_material_input(surface, "normal", tex_node, 0)
+                            except:
+                                _connect_to_material_input(surface, "normal", tex_node, 0)
                         
-                    elif ttype == "height":
-                        # Displacement
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_height")
-                        tex_node.parm("filename").set(tex_path)
-                        surface.setInput(4, tex_node, 0)  # Displacement
+                    elif ttype == "height" or ttype == "displacement":
+                        # Displacement/Height
+                        tex_node = create_texture_node("height")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            _connect_to_material_input(surface, "displacement", tex_node, 0)
                         
-                    elif ttype == "emissive":
+                    elif ttype == "emissive" or ttype == "emission":
                         # Emissive
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_emissive")
-                        tex_node.parm("filename").set(tex_path)
-                        surface.setInput(5, tex_node, 0)  # Emissive
+                        tex_node = create_texture_node("emissive")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            _connect_to_material_input(surface, "emission", tex_node, 0)
                         
-                    elif ttype == "opacity":
+                    elif ttype == "opacity" or ttype == "alpha" or ttype == "transparency":
                         # Opacity
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_opacity")
-                        tex_node.parm("filename").set(tex_path)
-                        surface.setInput(6, tex_node, 0)  # Opacity
+                        tex_node = create_texture_node("opacity")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            _connect_to_material_input(surface, "opacity", tex_node, 0)
                         
-                    elif ttype == "occlusion":
-                        # AO
-                        tex_node = mat_builder.createNode("karma::Texture", f"{safe_name}_ao")
-                        tex_node.parm("filename").set(tex_path)
-                        # AO typically goes to a multiply node with base color
-                        multiply = mat_builder.createNode("karma::Multiply")
-                        multiply.setInput(0, surface, 0)  # Base Color
-                        multiply.setInput(1, tex_node, 0)  # AO
-                        surface.setInput(0, multiply, 0)  # Replace base color with multiplied result
+                    elif ttype == "occlusion" or ttype == "ao":
+                        # AO - typically multiply with base color
+                        tex_node = create_texture_node("ao")
+                        if tex_node:
+                            if tex_node.parm("filename"):
+                                tex_node.parm("filename").set(tex_path)
+                            elif tex_node.parm("file"):
+                                tex_node.parm("file").set(tex_path)
+                            if udim:
+                                udim_parm = tex_node.parm("udim_enable") or tex_node.parm("udim")
+                                if udim_parm:
+                                    udim_parm.set(1)
+                            # Try to connect to AO or multiply with base color
+                            try:
+                                multiply = mat_builder.createNode("Multiply", f"{safe_name}_ao_multiply")
+                                if multiply:
+                                    # Get base color connection
+                                    base_color_input = surface.input(0) if surface.inputs() else None
+                                    if base_color_input:
+                                        multiply.setInput(0, base_color_input, 0)
+                                    multiply.setInput(1, tex_node, 0)
+                                    _connect_to_material_input(surface, "basecolor", multiply, 0)
+                                else:
+                                    _connect_to_material_input(surface, "ao", tex_node, 0)
+                            except:
+                                _connect_to_material_input(surface, "ao", tex_node, 0)
                         
                 except Exception as tex_error:
                     print(f"Warning: Could not create texture node for {ttype}: {tex_error}")
+                    import traceback
+                    traceback.print_exc()
                     continue
             
             # Layout nodes
@@ -475,4 +688,7 @@ def parse_texture_filename(filename):
     if not texture_type:
         return None
     
-    return prefix, texture_type, udim, ext, raw_colorspace_name
+    # Return format: (prefix, texture_type, ext, udim_token, variant)
+    # This matches the format expected by the material creation functions
+    # and is compatible with the fallback parser format: (prefix, ttype, ext, udim, variant)
+    return prefix, texture_type, ext.lstrip(".") if ext else "", udim or "", raw_colorspace_name or ""

@@ -130,6 +130,10 @@
 
 #### Material Loader (✅ Production)
 - **In-tool documentation** (tooltips)
+- **[KARMA_MATERIAL_NODE_TYPES.md](./KARMA_MATERIAL_NODE_TYPES.md)** 🎨
+  - Node types reference for Karma Material Builder
+  - Official Houdini documentation links
+  - Testing script and troubleshooting
 - Code: `python/mono_tools/material_loader/material_loader.py`
 
 #### Texture Search & Replace (✅ Production)
@@ -152,6 +156,11 @@
   - Icon naming conventions
   - Available icons
   - How to use
+
+- **[KARMA_MATERIAL_NODE_TYPES.md](./KARMA_MATERIAL_NODE_TYPES.md)**
+  - Karma Material Builder node types
+  - Official Houdini documentation links
+  - Testing script & troubleshooting
 
 - **[Startup_Flow_Explained.md](./Startup_Flow_Explained.md)**
   - Technical deep dive

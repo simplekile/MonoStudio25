@@ -1,5 +1,5 @@
 """
-New Folder Dialog - Custom UI for creating asset/shot folders
+Create Asset Dialog - Custom UI for creating asset/shot folders
 Compatible with Houdini 21+ (PySide6)
 """
 
@@ -7,7 +7,7 @@ from mono_tools.qt import QtCore, QtGui, QtWidgets
 import os
 
 
-class NewFolderDialog(QtWidgets.QDialog):
+class CreateAssetDialog(QtWidgets.QDialog):
     """Custom dialog for creating asset or shot folder structure"""
     
     def __init__(self, parent=None, all_types=None, asset_types=None):
@@ -16,7 +16,7 @@ class NewFolderDialog(QtWidgets.QDialog):
         self.all_types = all_types or []
         self.asset_types = asset_types or []
         
-        self.setWindowTitle("Create New Folder")
+        self.setWindowTitle("Create Asset")
         self.setMinimumWidth(550)
         self.setMinimumHeight(600)
         self.setModal(True)
@@ -32,7 +32,7 @@ class NewFolderDialog(QtWidgets.QDialog):
         layout.setContentsMargins(24, 24, 24, 24)
         
         # Title
-        title_label = QtWidgets.QLabel("Create New Folder")
+        title_label = QtWidgets.QLabel("Create Asset")
         title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #e5e5e5;")
         layout.addWidget(title_label)
         
@@ -63,7 +63,11 @@ class NewFolderDialog(QtWidgets.QDialog):
         
         self.asset_type_combo = QtWidgets.QComboBox()
         self.asset_type_combo.setMinimumWidth(350)
+        self.asset_type_combo.setEditable(True)  # Allow typing new asset type
+        self.asset_type_combo.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
+        self.asset_type_combo.lineEdit().setPlaceholderText("Select or type asset type...")
         self.asset_type_combo.currentIndexChanged.connect(self._update_preview)
+        self.asset_type_combo.lineEdit().textChanged.connect(self._update_preview)
         asset_layout.addRow("Asset Type:", self.asset_type_combo)
         
         self.asset_name_edit = QtWidgets.QLineEdit()
@@ -131,7 +135,7 @@ class NewFolderDialog(QtWidgets.QDialog):
         self.cancel_btn = QtWidgets.QPushButton("Cancel")
         self.cancel_btn.setMinimumWidth(100)
         
-        self.create_btn = QtWidgets.QPushButton("Create Folder")
+        self.create_btn = QtWidgets.QPushButton("Create Asset")
         self.create_btn.setMinimumWidth(140)
         self.create_btn.setDefault(True)
         
@@ -295,7 +299,11 @@ class NewFolderDialog(QtWidgets.QDialog):
     
     def _update_asset_preview(self):
         """Update preview for asset folder"""
+        # Get asset type from combo (data or typed text)
         asset_type = self.asset_type_combo.currentData()
+        if not asset_type:
+            # User typed new type, get from lineEdit
+            asset_type = self.asset_type_combo.currentText().strip() or self.asset_type_combo.lineEdit().text().strip()
         asset_name = self.asset_name_edit.text().strip()
         
         if not asset_type or not asset_name:
@@ -320,6 +328,7 @@ class NewFolderDialog(QtWidgets.QDialog):
         preview = f"01_assets/{asset_type}/{full_asset_name}/\n"
         
         total_folders = 0
+        departments = []  # Initialize to avoid UnboundLocalError
         
         if config and 'standard_departments' in config:
             departments = config['standard_departments']
@@ -432,26 +441,30 @@ class NewFolderDialog(QtWidgets.QDialog):
         
         if is_asset:
             # Validate asset fields
-            if not self.asset_type_combo.currentData():
-                QtWidgets.QMessageBox.warning(self, "New Folder", "Please select asset type")
-                return
+            asset_type = self.asset_type_combo.currentData()
+            if not asset_type:
+                # User typed new type, get from lineEdit
+                asset_type = self.asset_type_combo.currentText().strip() or self.asset_type_combo.lineEdit().text().strip()
+                if not asset_type:
+                    QtWidgets.QMessageBox.warning(self, "Create Asset", "Please select or enter asset type")
+                    return
             
             asset_name = self.asset_name_edit.text().strip()
             if not asset_name:
-                QtWidgets.QMessageBox.warning(self, "New Folder", "Please enter asset name")
+                QtWidgets.QMessageBox.warning(self, "Create Asset", "Please enter asset name")
                 return
         else:
             # Validate shot fields
             shot_name = self.shot_name_edit.text().strip()
             if not shot_name:
-                QtWidgets.QMessageBox.warning(self, "New Folder", "Please enter shot name")
+                QtWidgets.QMessageBox.warning(self, "Create Asset", "Please enter shot name")
                 return
             
             # Validate shot name format
             if '_' not in shot_name:
                 result = QtWidgets.QMessageBox.question(
                     self, 
-                    "New Folder",
+                    "Create Asset",
                     "Shot name should follow format: sq###_sh####\n\nContinue anyway?",
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
                 )
@@ -466,9 +479,15 @@ class NewFolderDialog(QtWidgets.QDialog):
         is_asset = self.asset_radio.isChecked()
         
         if is_asset:
+            # Get asset type from combo (data or typed text)
+            asset_type = self.asset_type_combo.currentData()
+            if not asset_type:
+                # User typed new type, get from lineEdit
+                asset_type = self.asset_type_combo.currentText().strip() or self.asset_type_combo.lineEdit().text().strip()
+            
             return {
                 'is_asset': True,
-                'asset_type': self.asset_type_combo.currentData(),
+                'asset_type': asset_type,
                 'asset_name': self.asset_name_edit.text().strip(),
                 'shot_name': None
             }

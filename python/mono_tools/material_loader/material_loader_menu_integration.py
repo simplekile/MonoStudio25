@@ -3,11 +3,19 @@ Material Loader Menu Integration
 Tích hợp Material Loader vào menu Houdini
 """
 
-import hou
+try:
+    import hou
+except ImportError:
+    hou = None
+
 from .material_loader import show_material_loader
 
 def add_material_loader_to_menu():
     """Thêm Material Loader vào menu Houdini"""
+    if hou is None:
+        print("⚠️ Material Loader: Houdini (hou) module not available")
+        return False
+    
     try:
         # Get main window
         main_window = hou.qt.mainWindow()

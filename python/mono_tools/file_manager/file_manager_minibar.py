@@ -97,7 +97,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         self.shot_display = QtWidgets.QLineEdit(); self.shot_display.setReadOnly(True); self.shot_display.setMinimumWidth(140); self.shot_display.setMaximumWidth(140); self.shot_display.setToolTip("Click để chọn shot • Chọn shot sẽ mở file trong Houdini"); self.shot_display.setCursor(QtCore.Qt.PointingHandCursor)
         self.shot_display.mousePressEvent = self._shot_display_clicked
         self.combo = QtWidgets.QComboBox(); self.combo.setVisible(False); self.combo.currentIndexChanged.connect(self._update_shot_display)
-        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• New File\n• New Folder\n• Save Version\n• Reload/Restart\n• Open Folders"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
+        self.btn_quick_menu=QtWidgets.QToolButton(); self.btn_quick_menu.setText("⚡"); self.btn_quick_menu.setFixedSize(24, 24); self.btn_quick_menu.setToolTip("Quick Menu\n• Create Task\n• Create Asset\n• Save Version\n• Reload/Restart\n• Open Folders"); self.btn_quick_menu.clicked.connect(self._show_quick_menu)
         self.btn_settings=QtWidgets.QToolButton(); self.btn_settings.setText("⚙️"); self.btn_settings.setFixedSize(32, 24); self.btn_settings.setToolTip("Settings Menu • User • Settings • About"); self.btn_settings.clicked.connect(self._show_settings_menu)
         lay=QtWidgets.QHBoxLayout(self); lay.setContentsMargins(4,3,6,3); lay.setSpacing(3)
         lay.addWidget(self.handle_area, 0)
@@ -720,8 +720,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         menu = QtWidgets.QMenu(self)
         menu.setStyleSheet(get_menu_style())
         # File operations
-        new_action = menu.addAction("📄 New File..."); new_action.triggered.connect(self._new_file)
-        new_folder_action = menu.addAction("📁 New Folder..."); new_folder_action.triggered.connect(self._new_folder)
+        new_action = menu.addAction("📄 Create Task..."); new_action.triggered.connect(self._create_task)
+        new_folder_action = menu.addAction("📁 Create Asset..."); new_folder_action.triggered.connect(self._create_asset)
         save_ver_action = menu.addAction("💾 Save Version..."); save_ver_action.triggered.connect(self._save_version)
         menu.addSeparator()
         # Folder operations
@@ -1360,8 +1360,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
         except Exception as e:
             hou.ui.displayMessage(f"Failed to restart Houdini:\n{str(e)}", severity=hou.severityType.Error)
 
-    def _new_file(self):
-        """Create new file with auto-naming based on type/department/subdept/user"""
+    def _create_task(self):
+        """Create new task with auto-naming based on type/department/subdept/user"""
         try:
             # Get project settings
             root = self.s.value("project_root", "", type=str)
@@ -1371,7 +1371,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 hou.ui.displayMessage(
                     "No project configured.\n\nClick ⚙️ Settings to configure project.",
                     severity=hou.severityType.Warning,
-                    title="New File"
+                    title="Create Task"
                 )
                 return
             
@@ -1418,19 +1418,14 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 
                 all_types_data.append((scanned_type_name, scanned_is_assets))
             
-            # Load departments config
-            config = load_department_config()
-            departments = []
-            if config:
-                if is_assets and 'standard_departments' in config:
-                    departments = config['standard_departments']
-                elif not is_assets and 'shot_departments' in config:
-                    departments = config['shot_departments']
+            # Get departments with metadata: scan from folders + merge with config
+            from .file_manager_helpers import get_departments_with_metadata
+            departments = get_departments_with_metadata(project_path, type_name, is_assets)
             
-            # Show custom New File dialog
-            from .ui import NewFileDialog
+            # Show custom Create Task dialog
+            from .ui import CreateTaskDialog
             
-            dialog = NewFileDialog(
+            dialog = CreateTaskDialog(
                 parent=self,
                 type_name=type_name,
                 department=department,
@@ -1439,7 +1434,8 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 is_assets=is_assets,
                 asset_types=asset_types,  # Asset types for icon lookup
                 departments=departments,
-                all_types=all_types_data  # All scanned types (assets + shots)
+                all_types=all_types_data,  # All scanned types (assets + shots)
+                project_path=project_path  # Pass project_path for hybrid department loading
             )
             
             if not dialog.exec_():
@@ -1454,39 +1450,23 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             username = values['username']
             asset_name = values['name']
             
-            # Generate filename
-            filename = generate_new_filename(type_name, asset_name, department, "v001", ".hip")
+            # Use centralized helpers to ensure prefix and build path
+            from .file_manager_helpers import (
+                ensure_asset_name_has_prefix,
+                build_file_directory_path
+            )
             
-            # Determine target directory (with subdept + user workspace)
             if is_assets:
-                # Assets: 01_assets/_characters/char_AssetName/01_modeling/[01_sculpt/]username/
-                # Add prefix if not present
-                if not any(asset_name.lower().startswith(p) for p in ['char_', 'prop_', 'env_', 'veh_']):
-                    # Guess prefix from type
-                    if 'character' in type_name.lower():
-                        asset_name = f"char_{asset_name}"
-                    elif 'prop' in type_name.lower():
-                        asset_name = f"prop_{asset_name}"
-                    elif 'environment' in type_name.lower():
-                        asset_name = f"env_{asset_name}"
-                
-                # Build path: assets/type/asset/dept/[subdept/]user/
-                path_parts = [root, project, "01_assets", type_name, asset_name, department]
-                
-                if subdepartment:
-                    path_parts.append(subdepartment)
-                
-                path_parts.append(username)  # User workspace
-                target_dir = os.path.join(*path_parts)
-            else:
-                # Shots: 02_shots/department/[subdept/]username/
-                path_parts = [root, project, "02_shots", department]
-                
-                if subdepartment:
-                    path_parts.append(subdepartment)
-                
-                path_parts.append(username)  # User workspace
-                target_dir = os.path.join(*path_parts)
+                asset_name = ensure_asset_name_has_prefix(type_name, asset_name)
+            
+            # Build target directory using centralized helper
+            target_dir = build_file_directory_path(
+                root, project, type_name, asset_name, department,
+                subdepartment, username, is_assets
+            )
+            
+            # Generate filename (use subdepartment name if provided)
+            filename = generate_new_filename(type_name, asset_name, department, "v001", ".hip", subdepartment)
             
             # Create directory if not exists
             if not os.path.exists(target_dir):
@@ -1516,7 +1496,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             # Save current scene if has unsaved changes
             if hou.hipFile.hasUnsavedChanges():
                 save_choice = hou.ui.displayMessage(
-                    "Current scene has unsaved changes.\n\nSave before creating new file?",
+                    "Current scene has unsaved changes.\n\nSave before creating new task?",
                     buttons=("Save & Create", "Create Without Saving", "Cancel"),
                     severity=hou.severityType.ImportantMessage,
                     default_choice=0,
@@ -1555,21 +1535,21 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             hou.ui.setStatusMessage(f"Created: {filename}", severity=hou.severityType.Message)
             hou.ui.displayMessage(
-                f"New file created successfully!\n\n{filename}\n\n{location_info}",
+                f"Task created successfully!\n\n{filename}\n\n{location_info}",
                 severity=hou.severityType.Message,
-                title="New File Created"
+                title="Task Created"
             )
             
         except Exception as e:
             hou.ui.displayMessage(
-                f"Failed to create new file:\n{str(e)}",
+                f"Failed to create task:\n{str(e)}",
                 severity=hou.severityType.Error,
-                title="New File Error"
+                title="Create Task Error"
             )
             import traceback
             traceback.print_exc()
     
-    def _new_folder(self):
+    def _create_asset(self):
         """Create new asset or shot folder structure"""
         try:
             # Get project settings
@@ -1580,7 +1560,7 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 hou.ui.displayMessage(
                     "No project configured.\n\nClick ⚙️ Settings to configure project.",
                     severity=hou.severityType.Warning,
-                    title="New Folder"
+                    title="Create Asset"
                 )
                 return
             
@@ -1596,10 +1576,10 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             # Load asset types config for icons
             asset_types = load_asset_types_config()
             
-            # Show custom New Folder dialog
-            from .ui import NewFolderDialog
+            # Show custom Create Asset dialog
+            from .ui import CreateAssetDialog
             
-            dialog = NewFolderDialog(
+            dialog = CreateAssetDialog(
                 parent=self,
                 all_types=all_types_data,
                 asset_types=asset_types
@@ -1620,9 +1600,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 
         except Exception as e:
             hou.ui.displayMessage(
-                f"Error creating folder:\n{str(e)}",
+                f"Error creating asset:\n{str(e)}",
                 severity=hou.severityType.Error,
-                title="New Folder Error"
+                title="Create Asset Error"
             )
             import traceback
             traceback.print_exc()
@@ -1659,25 +1639,25 @@ class MonoFileMiniBar(QtWidgets.QWidget):
                 if self.current_type == selected_type:
                     self._refresh_files_for_current_tab()
                 
-                # Ask if user wants to create a file in the new folder
+                # Ask if user wants to create a task in the new asset
                 create_file = hou.ui.displayMessage(
-                    "Folder structure created!\n\nWould you like to create a new file in this asset?",
+                    "Asset structure created!\n\nWould you like to create a task in this asset?",
                     buttons=("Yes", "No"),
                     severity=hou.severityType.Message,
                     default_choice=0,
                     close_choice=1,
-                    title="Create File?"
+                    title="Create Task?"
                 )
                 
                 if create_file == 0:
-                    # Set type and open new file dialog
+                    # Set type and open create task dialog
                     # asset_types here is from config, need to convert format for _select_type
                     type_path = os.path.join(project_path, "01_assets", selected_type)
                     is_assets = True
                     self._select_type(selected_type, type_path, is_assets)
                     
-                    # Open new file dialog (will use current type)
-                    self._new_file()
+                    # Open create task dialog (will use current type)
+                    self._create_task()
             else:
                 hou.ui.displayMessage(
                     message,
@@ -1687,9 +1667,9 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
         except Exception as e:
             hou.ui.displayMessage(
-                f"Failed to create folder structure:\n{str(e)}",
+                f"Failed to create asset structure:\n{str(e)}",
                 severity=hou.severityType.Error,
-                title="New Folder Error"
+                title="Create Asset Error"
             )
             import traceback
             traceback.print_exc()
@@ -1701,76 +1681,50 @@ class MonoFileMiniBar(QtWidgets.QWidget):
             
             project_path = os.path.join(root, project)
             
-            # Load shot departments
-            from .ui import ConfigManager
-            shot_departments = ConfigManager.load_shot_departments()
+            # Use centralized helper function
+            from .file_manager_helpers import create_shot_folder_structure
             
-            if not shot_departments:
-                hou.ui.displayMessage(
-                    "No shot departments configured.\n\nPlease configure in Settings.",
-                    severity=hou.severityType.Warning,
-                    title="New Folder"
-                )
-                return
-            
-            # Create shot folder structure
-            shot_base = os.path.join(project_path, "02_shots")
-            os.makedirs(shot_base, exist_ok=True)
-            
-            shot_folder = os.path.join(shot_base, shot_name)
-            
-            if os.path.exists(shot_folder):
-                hou.ui.displayMessage(
-                    f"Shot already exists:\n{shot_name}",
-                    severity=hou.severityType.Warning
-                )
-                return
-            
-            # Create shot folder
-            os.makedirs(shot_folder, exist_ok=True)
-            
-            # Create all department folders with subdepartments
-            for dept in shot_departments:
-                dept_id = dept['id']
-                dept_folder = os.path.join(shot_folder, dept_id)
-                os.makedirs(dept_folder, exist_ok=True)
-                
-                # Create subdepartments
-                for subdept in dept.get('subdepartments', []):
-                    subdept_id = subdept['id']
-                    subdept_folder = os.path.join(dept_folder, subdept_id)
-                    os.makedirs(subdept_folder, exist_ok=True)
-                    
-                    # Subdepartment publish folder
-                    if subdept.get('create_publish', False):
-                        subdept_publish = os.path.join(subdept_folder, '_publish')
-                        os.makedirs(subdept_publish, exist_ok=True)
-                
-                # Software subfolders
-                for sw in dept.get('software_folders', []):
-                    sw_folder = os.path.join(dept_folder, sw)
-                    os.makedirs(sw_folder, exist_ok=True)
-                
-                # Department publish folder
-                if dept.get('create_publish', False):
-                    publish_folder = os.path.join(dept_folder, '_publish')
-                    os.makedirs(publish_folder, exist_ok=True)
-            
-            # Success message
-            hou.ui.displayMessage(
-                f"Shot created successfully!\n\n{shot_name}\n\nCreate a new file in this shot?",
-                buttons=("Create File", "Done"),
-                severity=hou.severityType.Message,
-                title="Shot Created"
+            success, shot_folder, message = create_shot_folder_structure(
+                project_path, shot_name, departments=None  # Will use config
             )
             
-            # TODO: Open new file dialog for shot
+            if success:
+                hou.ui.displayMessage(
+                    message,
+                    severity=hou.severityType.Message,
+                    title="Shot Created"
+                )
+                
+                # Refresh file list if needed
+                # (Shot folders don't have type selection, so refresh may not be needed)
+                
+                # Ask if user wants to create a task in the shot
+                create_file = hou.ui.displayMessage(
+                    f"Shot created successfully!\n\n{shot_name}\n\nCreate a task in this shot?",
+                    buttons=("Create Task", "Done"),
+                    severity=hou.severityType.Message,
+                    default_choice=0,
+                    close_choice=1,
+                    title="Shot Created"
+                )
+                
+                if create_file == 0:
+                    # Set type to Shots and open create task dialog
+                    type_path = os.path.join(project_path, "02_shots")
+                    self._select_type("Shots", type_path, False)
+                    self._create_task()
+            else:
+                hou.ui.displayMessage(
+                    message,
+                    severity=hou.severityType.Error,
+                    title="Shot Creation Failed"
+                )
             
         except Exception as e:
             hou.ui.displayMessage(
                 f"Failed to create shot:\n{str(e)}",
                 severity=hou.severityType.Error,
-                title="New Shot Error"
+                title="Create Shot Error"
             )
             import traceback
             traceback.print_exc()

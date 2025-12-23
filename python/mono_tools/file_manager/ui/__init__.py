@@ -7,8 +7,8 @@ from .base_dialog import MonoBaseDialog
 from .smart_input import SmartLineEdit
 from .config_manager import ConfigManager
 from .choice_dialog import ChoiceDialog, InputDialog
-from .new_file_dialog import NewFileDialog
-from .new_folder_dialog import NewFolderDialog
+from .create_task_dialog import CreateTaskDialog
+from .create_asset_dialog import CreateAssetDialog
 from .styles import (
     get_menu_style,
     get_dialog_style,
@@ -27,8 +27,8 @@ __all__ = [
     'ConfigManager',
     'ChoiceDialog',
     'InputDialog',
-    'NewFileDialog',
-    'NewFolderDialog',
+    'CreateTaskDialog',
+    'CreateAssetDialog',
     'get_menu_style',
     'get_dialog_style',
     'get_note_style',
